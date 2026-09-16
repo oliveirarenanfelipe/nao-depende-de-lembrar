@@ -131,7 +131,13 @@ python -B maquina/testar_regua_de_trava.py
 python -B maquina/testar_regua_de_complexidade.py
 ```
 
-Measured: 8 suites, 150 checks, 22 mutations, 0 survivors.
+Measured: 8 suites, 145 checks, 22 mutations, 0 survivors.
+
+In the codebase this came from it is 150. The 5 extra depend on things this
+repository does not ship: a real codebase with projects in it, and one of the
+gates, which lives in the agent's folder. They do not vanish quietly: the test
+prints what it could not measure and why. A test that skips in silence becomes
+decoration.
 
 Every suite carries executable mutations, and that is what separates this from
 a test set that merely passes. The question a green test does not answer is

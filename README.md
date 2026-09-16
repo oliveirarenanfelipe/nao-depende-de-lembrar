@@ -124,7 +124,12 @@ python -B maquina/testar_regua_de_trava.py
 python -B maquina/testar_regua_de_complexidade.py
 ```
 
-Medido: 8 suítes, 150 checagens, 22 mutações, 0 sobrevivente.
+Medido: 8 suítes, 145 checagens, 22 mutações, 0 sobrevivente.
+
+Na casa de origem são 150. As 5 de diferença dependem de coisas que não vêm
+neste repositório: a casa real com projetos dentro, e um dos gates, que mora
+na pasta do agente. Elas não somem em silêncio — o teste imprime o que deixou
+de medir e por quê. Teste que se pula calado vira enfeite.
 
 Toda suíte tem mutação executável, e é isso que separa este repositório de um
 conjunto de testes que passa. A pergunta que um teste verde não responde é
