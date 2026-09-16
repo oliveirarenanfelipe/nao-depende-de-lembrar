@@ -1,0 +1,19 @@
+# O dado da casa NAO vai para o repositorio. So os `.exemplo` vao.
+#
+# Nao e conveniencia: sem esta linha, o primeiro `git add .` de quem usar isto
+# publicaria a lista de nomes de pessoas, empresas e projetos privados, que e
+# exatamente o conteudo que o `medir_privacidade` existe para achar. O arquivo
+# que ensina a detectar o privado seria o vazamento.
+maquina/privacidade.json
+maquina/mapa.json
+maquina/reescritas.json
+
+# Saida de trabalho
+maquina/publicado/
+vitrine.html
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store

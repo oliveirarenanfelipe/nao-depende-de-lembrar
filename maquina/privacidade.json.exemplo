@@ -1,0 +1,73 @@
+{
+  "_leia": [
+    "OS NOMES QUE NAO PODEM SAIR DA SUA CASA. Este arquivo e DADO, e o dado e",
+    "o que e privado — nao o codigo que o le.",
+    "",
+    "COPIE PARA `privacidade.json` E PONHA OS SEUS NOMES. Sem o arquivo, o",
+    "`medir_privacidade.py` levanta erro e para, de proposito: um detector que",
+    "cai para lista vazia aprova TUDO em silencio, e o que vazou ja vazou.",
+    "",
+    "Por que ele e separado do codigo: ao destilar a maquina para publicacao, o",
+    "`medir_privacidade.py` foi REPROVADO pelo seu proprio detector — e com",
+    "razao, porque as regex dele listavam nomes reais de pessoas, empresas e",
+    "projetos. A lista de nomes privados ERA o conteudo privado. Publicar com a",
+    "lista vaza a carteira de clientes; publicar sem ela entrega um detector",
+    "morto. As duas saidas eram ruins, e a terceira e esta: separar dado de",
+    "codigo.",
+    "",
+    "Cada entrada e uma REGEX. Escape o que for literal."
+  ],
+
+  "pessoa_empresa": [
+    "Fulano", "Sicrana", "Empresa Exemplo", "usuario-do-github"
+  ],
+
+  "projeto_interno": [
+    "Projeto-Alfa", "Projeto-Beta", "Cliente[- ]Gama"
+  ],
+
+  "caminho_do_disco": [
+    "C:\\\\+Users\\\\+SEU_USUARIO",
+    "/c/Users/SEU_USUARIO",
+    "~[\\\\/]\\.claude",
+    "[A-Z]:\\\\+Users"
+  ],
+
+  "incidente_com_data": [
+    "\\b\\d{2}/\\d{2}(/\\d{4})?\\b",
+    "\\b20\\d{2}-\\d{2}-\\d{2}\\b"
+  ],
+
+  "_leia_contas": [
+    "As contas de git da sua casa. Repo cujo remote nao cita uma delas e de",
+    "TERCEIRO: o `o_basico.py` nao o conta, porque medir a divida alheia",
+    "envenena o numero que decide onde atacar."
+  ],
+
+  "contas_da_casa": ["usuario-do-github", "organizacao-do-github"],
+
+  "_leia_trocas": [
+    "As trocas MECANICAS do destilador: caminho de disco vira marcador, sem",
+    "julgamento nenhum. Pares [padrao, substituto], aplicados em ordem.",
+    "",
+    "Elas moram aqui e nao no codigo porque, enquanto estavam no codigo, o",
+    "`destilar.py` CORROMPIA A SI MESMO: ao destilar o proprio arquivo, ele",
+    "trocava o conteudo das proprias regex por marcadores, e a versao publicada",
+    "saia sem saber detectar caminho POSIX. Codigo publicado e quebrado e pior",
+    "que codigo nao publicado — ninguem desconfia de uma peca que roda."
+  ],
+
+  "trocas_mecanicas": [
+    ["C:\\\\+Users\\\\+SEU_USUARIO\\\\+Projeto", "<PROJETOS>"],
+    ["C:\\\\+Users\\\\+SEU_USUARIO\\\\+\\.claude", "<CLAUDE>"],
+    ["C:\\\\+Users\\\\+SEU_USUARIO", "<CASA>"],
+    ["/c/Users/SEU_USUARIO/Projeto", "<PROJETOS>"],
+    ["/c/Users/SEU_USUARIO", "<CASA>"]
+  ],
+
+  "contato_url": [
+    "https?://(?!github\\.com/(actions|checkout))[^\\s`\"']+",
+    "\\b\\d{2}9?\\d{4}-?\\d{4}\\b",
+    "[\\w.+-]+@[\\w.-]+\\.\\w+"
+  ]
+}

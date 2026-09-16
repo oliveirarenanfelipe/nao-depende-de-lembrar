@@ -1,0 +1,95 @@
+{
+  "_leia": [
+    "O MAPA DA MAQUINA. Este arquivo e DADO: quem sao as pecas, onde cada uma",
+    "mora, qual teste a prova e quem a chama. O codigo que o LE e generico; a",
+    "lista e da sua casa.",
+    "",
+    "COPIE PARA `mapa.json` E DECLARE AS SUAS PECAS. O que esta aqui sao as 9",
+    "pecas deste repositorio — o minimo para a maquina se medir a si mesma.",
+    "Acrescente as suas: peca que nao entra nesta lista fica INVISIVEL, e",
+    "invisivel le igual a inexistente.",
+    "",
+    "Por que ele e separado do codigo: a lista vivia dentro do `inventario.py`,",
+    "e o repositorio candidato respondeu `sem arquivo no disco: 0` — porque",
+    "continuava lendo os caminhos da casa de origem. Na sua maquina, aquele",
+    "codigo acusaria 11 pecas sumidas que nunca existiram. Era o inventario",
+    "particular de alguem publicado como se fosse codigo.",
+    "",
+    "`onde` e um dos tres lugares que o `inventario.py` conhece:",
+    "  HOOKS  — a pasta de onde o seu agente carrega os hooks",
+    "  FUND   — a pasta desta maquina",
+    "  SHARED — biblioteca importada por varios projetos",
+    "",
+    "`teste` vazio significa `SEM TESTE`, e o inventario acusa isso de",
+    "proposito. `chamador` e quem invoca a peca: peca sem chamador e orfa, que",
+    "e defeito e nao pendencia.",
+    "",
+    "Sem este arquivo a peca NAO cai para lista vazia: ela levanta e para,",
+    "porque mapa vazio responde `nenhuma peca quebrada` sobre nenhuma peca."
+  ],
+  "pecas": [
+    {
+      "camada": "medida",
+      "nome": "o_basico",
+      "onde": "FUND",
+      "teste": "testar_o_basico.py",
+      "chamador": "o verificador diario de saude"
+    },
+    {
+      "camada": "medida",
+      "nome": "inventario",
+      "onde": "FUND",
+      "teste": "testar_inventario.py",
+      "chamador": "o verificador diario de saude"
+    },
+    {
+      "camada": "conserto",
+      "nome": "ligar_ci",
+      "onde": "FUND",
+      "teste": "testar_ligar_ci.py",
+      "chamador": "o verificador diario + o rito de projeto novo"
+    },
+    {
+      "camada": "conserto",
+      "nome": "consertar",
+      "onde": "FUND",
+      "teste": "testar_consertar.py",
+      "chamador": "o verificador diario de saude"
+    },
+    {
+      "camada": "vitrine",
+      "nome": "vitrine",
+      "onde": "FUND",
+      "teste": "testar_vitrine.py",
+      "chamador": "o verificador diario de saude"
+    },
+    {
+      "camada": "destilacao",
+      "nome": "destilar",
+      "onde": "FUND",
+      "teste": "testar_destilar.py",
+      "chamador": "a mao, antes de publicar"
+    },
+    {
+      "camada": "destilacao",
+      "nome": "medir_privacidade",
+      "onde": "FUND",
+      "teste": "testar_destilar.py",
+      "chamador": "destilar.py"
+    },
+    {
+      "camada": "regua",
+      "nome": "regua_de_trava",
+      "onde": "FUND",
+      "teste": "testar_regua_de_trava.py",
+      "chamador": "o rito que funda projeto novo"
+    },
+    {
+      "camada": "regua",
+      "nome": "regua_de_complexidade",
+      "onde": "FUND",
+      "teste": "testar_regua_de_complexidade.py",
+      "chamador": "o comando de desenvolvimento guiado por spec"
+    }
+  ]
+}

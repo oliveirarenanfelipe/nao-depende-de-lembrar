@@ -1,0 +1,43 @@
+name: testes
+
+# O CI roda as 8 suites, e cada uma so passa com 0 falha E 0 mutacao
+# sobrevivente. Nao ha `continue-on-error` aqui de proposito: um passo que
+# falha e nao reprova o job e a definicao de aviso decorativo, que e a coisa
+# que esta maquina inteira existe para impedir.
+#
+# Ele copia os dois `.exemplo` para os nomes reais antes de rodar, porque o
+# dado fica de fora do repositorio. E o CI provando, de quebra, que os
+# exemplos publicados sao suficientes para a maquina funcionar: exemplo que
+# nao roda e documentacao errada com cara de certa.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: o dado de exemplo vira o dado de verdade
+        run: |
+          cp maquina/privacidade.json.exemplo maquina/privacidade.json
+          cp maquina/mapa.json.exemplo maquina/mapa.json
+
+      - name: as 8 suites, com mutacao
+        run: |
+          set -e
+          for t in maquina/testar_*.py; do
+            echo "=== $t ==="
+            python -B "$t"
+          done
+
+      - name: o mapa da maquina responde
+        run: python -B maquina/inventario.py --rapido
