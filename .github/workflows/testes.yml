@@ -16,6 +16,16 @@ on:
   pull_request:
   workflow_dispatch:
 
+# O minimo, declarado. A conta ja tem `read` como padrao, mas padrao de conta e
+# uma configuracao que muda noutro lugar, sem passar por aqui e sem avisar
+# ninguem. Escrito no arquivo, o minimo viaja junto com o repositorio: quem
+# clonar leva a mesma trava, e nao a configuracao de quem publicou.
+#
+# Este workflow nao usa nenhum `secrets.` e nao escreve nada — so roda os
+# testes. Nao ha nada a conceder.
+permissions:
+  contents: read
+
 jobs:
   testes:
     runs-on: ubuntu-latest
