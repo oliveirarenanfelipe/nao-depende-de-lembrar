@@ -76,6 +76,29 @@ The lock ruler is derived rather than generic for one reason: "is this project
 serious?" is a question each day answers differently, and advice that does not
 change with the answer becomes noise people learn to skip.
 
+### the gate: the half that refuses
+
+| piece | what it blocks |
+|---|---|
+| `bash_na_porta.py` | a shell command that could destroy your work, **before it runs**. Four axes: destroying the agent's folder, deleting something owned by another project, writing into another project via Bash, and corrupting accented text in a heredoc or a search |
+| `fronteira_lib.py` | blocks nothing by itself: it is the only thing that answers *which project does this path belong to?*, and the gates ask it |
+
+This is the piece the rest of the repository describes and did not ship. The
+others measure and repair; this one **refuses**. It is a Claude Code
+`PreToolUse` hook, declared in your `settings.json`, and the agent runs it
+before every command.
+
+The four axes came from four real accidents, each with its number attached: 5
+hooks deleted by a heredoc that closed early; a folder in `/tmp` that turned
+out to be a clone of another project; a script that wrote inside someone
+else's project while 4 write gates saw nothing; and 53 characters lost in a
+file that came out valid UTF-8, exit 0, with no warning at all.
+
+⚠️ The accented-search axis is the quietest of the four and the easiest to
+underestimate: `grep` with an accent through the shell returns **0 matches for
+text that is there**. It is not a bug that shows up — it is a false statement
+wearing the clothes of a measurement.
+
 ### publishing: whatever leaves was measured before it left
 
 | piece | what it does |
@@ -103,7 +126,8 @@ No external dependencies. Python 3 and nothing else.
 ```bash
 cp maquina/privacidade.json.exemplo maquina/privacidade.json
 cp maquina/mapa.json.exemplo maquina/mapa.json
-# open both and put in your names, your accounts, your pieces
+cp portas/casa.json.exemplo portas/casa.json
+# open all three and put in your names, your accounts, your pieces
 
 python maquina/inventario.py          # is the machine standing?
 python maquina/o_basico.py            # does the codebase cover the basics?
@@ -111,10 +135,23 @@ python maquina/ligar_ci.py --todos    # who has tests no CI ever runs
 python maquina/regua_de_trava.py <project-folder>
 ```
 
-Both `.json` files are data, and the data is yours. Without them the pieces
-stop with an error, on purpose: a detector that falls back to an empty list
-approves everything in silence, and an empty map answers "nothing broken"
-about nothing at all. Failing loudly is the choice, not an oversight.
+All three `.json` files are data, and the data is yours. Without them the
+pieces stop with an error, on purpose: a detector that falls back to an empty
+list approves everything in silence, an empty map answers "nothing broken"
+about nothing at all, and a boundary that does not know where your work starts
+answers "no owner" for every path — which the gates read as "go ahead and
+write". Failing loudly is the choice, not an oversight.
+
+The gate is a hook, so you wire it into Claude Code's `settings.json`:
+
+```json
+{ "hooks": { "PreToolUse": [ { "matcher": "Bash", "hooks": [
+  { "type": "command",
+    "command": "python \"/path/to/portas/bash_na_porta.py\"" } ] } ] } }
+```
+
+Read the piece before wiring it in. It will refuse commands of yours, and that
+is precisely where its value is.
 
 ---
 
@@ -131,9 +168,9 @@ python -B maquina/testar_regua_de_trava.py
 python -B maquina/testar_regua_de_complexidade.py
 ```
 
-Measured: 8 suites, 145 checks, 22 mutations, 0 survivors.
+Measured: 9 suites, 199 checks, 28 mutations, 0 survivors.
 
-In the codebase this came from it is 150. The 5 extra depend on things this
+In the codebase this came from it is 204. The 5 extra depend on things this
 repository does not ship: a real codebase with projects in it, and one of the
 gates, which lives in the agent's folder. They do not vanish quietly: the test
 prints what it could not measure and why. A test that skips in silence becomes

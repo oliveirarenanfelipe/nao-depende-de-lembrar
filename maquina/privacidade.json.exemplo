@@ -26,10 +26,23 @@
     "Projeto-Alfa", "Projeto-Beta", "Cliente[- ]Gama"
   ],
 
+  "_leia_caminho": [
+    "Note o que NAO esta aqui: `~/.claude`. Ele nao identifica ninguem — e o",
+    "diretorio do agente em qualquer maquina — e e o ALVO do gate do Bash, que",
+    "precisa cita-lo pelo nome nos proprios casos de teste. Detector que",
+    "reprova o alvo do proprio gate torna a peca impublicavel por um motivo",
+    "que nao e privacidade.",
+    "",
+    "E note o que ESTA: o slug de projeto do agente",
+    "(`C--Users-<usuario>-Projeto-<nome>`). Ele carrega o nome do usuario do",
+    "disco e passava limpo por TODOS os detectores. O padrao e estrutural, nao",
+    "um nome: qualquer slug nessa forma carrega um usuario."
+  ],
+
   "caminho_do_disco": [
     "C:\\\\+Users\\\\+SEU_USUARIO",
     "/c/Users/SEU_USUARIO",
-    "~[\\\\/]\\.claude",
+    "\\b[A-Za-z]--Users-[\\w.-]+",
     "[A-Z]:\\\\+Users"
   ],
 
@@ -65,9 +78,34 @@
     ["/c/Users/SEU_USUARIO", "<CASA>"]
   ],
 
+  "_leia_ip": [
+    "IP publico. A regex ignora de proposito as faixas que NAO identificam a",
+    "maquina de ninguem: privadas (10, 172.16-31, 192.168), loopback (127),",
+    "link-local (169.254), a faixa de documentacao da RFC 5737 (192.0.2,",
+    "198.51.100, 203.0.113) e o 0.x. Sao as que se usa em exemplo, e acusa-las",
+    "faria o detector reprovar exemplo correto — que e como um gate vira",
+    "enfeite.",
+    "",
+    "Ele nasceu porque um IP real de servidor estava num arquivo a publicar, e",
+    "o detector so o acusou por ACIDENTE: o `usuario@` na frente fez a regex de",
+    "e-mail casar. Sem usuario antes, o mesmo IP passava limpo. Gate que acerta",
+    "por coincidencia acerta so enquanto a coincidencia durar."
+  ],
+
+  "ip_publico": [
+    "\\b(?!(?:0|10|127|169\\.254|172\\.(?:1[6-9]|2\\d|3[01])|192\\.168|192\\.0\\.2|198\\.51\\.100|203\\.0\\.113)\\.)(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
+  ],
+
+  "_leia_email": [
+    "O TLD e `[A-Za-z]{2,}`, e nao `\\w+`, por um falso positivo que travava",
+    "trabalho legitimo: `root@203.0.113.77` — usuario e endereco os dois",
+    "inventados — casava como e-mail. Caso de teste de `ssh` e cheio de",
+    "`usuario@maquina`, e o detector acusava todos."
+  ],
+
   "contato_url": [
     "https?://(?!github\\.com/(actions|checkout))[^\\s`\"']+",
     "\\b\\d{2}9?\\d{4}-?\\d{4}\\b",
-    "[\\w.+-]+@[\\w.-]+\\.\\w+"
+    "[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}"
   ]
 }

@@ -1,0 +1,39 @@
+{
+  "_leia": [
+    "ONDE A SUA CASA MORA. Este arquivo e DADO: a pasta que guarda os seus",
+    "projetos, o seu usuario do disco e quais pastas sao de todo mundo.",
+    "",
+    "COPIE PARA `casa.json` E AJUSTE. Sem ele, a fronteira levanta e a porta do",
+    "Bash NEGA todo comando, dizendo por que. Isso e deliberado: uma fronteira",
+    "que nao sabe onde a casa comeca responde 'nao ha dono' para todo caminho,",
+    "e 'nao ha dono' le como 'pode escrever'. O modo de falha silencioso aqui",
+    "seria ABRIR o portao, entao ela prefere fecha-lo e explicar.",
+    "",
+    "Por que ele e separado do codigo: a regex que reconhece caminho de projeto",
+    "tinha o nome do usuario do disco ESCRITO DENTRO DELA. Publicada assim, a",
+    "peca funcionaria na maquina de uma pessoa so, e em silencio: ela nao",
+    "quebra, apenas deixa de reconhecer os caminhos de quem baixou. Gate que",
+    "nao reconhece nada nao barra nada.",
+    "",
+    "CAMPOS:",
+    "  `pasta_dos_projetos`  — o NOME da pasta, dentro do seu HOME, onde os",
+    "                          projetos moram. So o nome: o HOME quem descobre",
+    "                          e o proprio Python.",
+    "  `usuario_do_disco`    — o seu nome de usuario como ele aparece num",
+    "                          caminho absoluto. Deixe vazio para derivar do",
+    "                          HOME, que e o que quase sempre voce quer.",
+    "  `pastas_transversais` — pastas que existem para ser usadas por TODOS os",
+    "                          projetos. Escrever nelas de qualquer sessao e o",
+    "                          desenho, nao invasao, e por isso elas nunca",
+    "                          resolvem para um dono. Lista vazia e valida."
+  ],
+
+  "pasta_dos_projetos": "Projeto",
+
+  "usuario_do_disco": "",
+
+  "pastas_transversais": [
+    "_shared",
+    "_comum"
+  ]
+}

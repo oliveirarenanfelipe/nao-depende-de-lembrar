@@ -40,11 +40,20 @@ jobs:
         run: |
           cp maquina/privacidade.json.exemplo maquina/privacidade.json
           cp maquina/mapa.json.exemplo maquina/mapa.json
+          cp portas/casa.json.exemplo portas/casa.json
 
-      - name: as 8 suites, com mutacao
+      - name: as suites da maquina, com mutacao
         run: |
           set -e
           for t in maquina/testar_*.py; do
+            echo "=== $t ==="
+            python -B "$t"
+          done
+
+      - name: as suites das portas, com mutacao
+        run: |
+          set -e
+          for t in portas/testar_*.py; do
             echo "=== $t ==="
             python -B "$t"
           done

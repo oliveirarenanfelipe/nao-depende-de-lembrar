@@ -98,6 +98,13 @@ CATALOGO_FALSO = {
     "projeto_interno": ["Projeto-Alfa", "Projeto-Beta"],
     "caminho_do_disco": [r"C:\\+Users\\+olive", "<CASA>"],
     "incidente_com_data": [r"\b\d{2}/\d{2}(/\d{4})?\b"],
+    # A familia do IP usa a regex REAL, copiada do catalogo de verdade, e nao
+    # uma simplificacao: e a unica cujo valor esta todo nas EXCECOES (faixa
+    # privada, loopback, documentacao). Uma versao simplificada aqui provaria
+    # um detector que nao existe.
+    "ip_publico": [
+        r"\b(?!(?:0|10|127|169\.254|172\.(?:1[6-9]|2\d|3[01])|192\.168"
+        r"|192\.0\.2|198\.51\.100|203\.0\.113)\.)(?:\d{1,3}\.){3}\d{1,3}\b"],
     "contato_url": [r"[\w.+-]+@[\w.-]+\.\w+", r"https?://[^\s`\"']+"],
     "trocas_mecanicas": [[r"C:\\+Users\\+olive\\+Projeto", "<PROJETOS>"],
                          [r"C:\\+Users\\+olive", "<CASA>"],
@@ -112,7 +119,7 @@ FONTE_REAL = mp.FONTE
 mp.MARCAS = mp.carregar_marcas(FONTE_FALSA)
 ds.MECANICAS = ds.carregar_mecanicas(FONTE_FALSA)
 marcar("o teste roda contra um catalogo de MENTIRA, escrito por ele",
-       len(mp.MARCAS) == 5 and os.path.isfile(FONTE_FALSA))
+       len(mp.MARCAS) == len(mp._ORDEM) and os.path.isfile(FONTE_FALSA))
 
 PESSOA = CATALOGO_FALSO["pessoa_empresa"][0]
 PROJETO = CATALOGO_FALSO["projeto_interno"][0]
@@ -140,6 +147,18 @@ def amostra_positiva(*pedacos):
 
 
 EMAIL_FALSO = amostra_positiva("alguem", chr(64), "exemplo.com.br")
+
+# O slug de projeto do agente, na forma que carrega um nome de usuario. Vale a
+# mesma regra do e-mail: montado, nunca escrito.
+SLUG_FALSO = amostra_positiva("C--", "Users-", "fulano", "-Projeto-Alfa")
+
+# Um caminho absoluto Windows de um usuario que nao existe. Montado pela mesma
+# razao de sempre: `[A-Z]:\\+Users` e estrutural e acusa qualquer caminho
+# desses, inclusive o inventado — que e exatamente o que se quer provar.
+_B1 = chr(92)
+CAMINHO_FALSO = amostra_positiva(
+    "C:", _B1, "Users", _B1, "fulano", _B1, ".claude", _B1, "hooks", _B1,
+    "x.py")
 
 # as pecas de mentira, uma por familia do medidor
 AMOSTRAS = {
@@ -381,7 +400,94 @@ print("\n== 2c. a fonte dos nomes e DADO, e some-la e ERRO, nao lista vazia ==")
 # so para provar que o detector o pega seria plantar no codigo exatamente o
 # que o detector existe para impedir.
 REAIS = mp.carregar_marcas(FONTE_REAL)
-marcar("as %d familias carregam do JSON real" % len(REAIS), len(REAIS) == 5)
+# ⚠️ O NUMERO SAI DA FONTE, e nao da minha memoria. Esta linha e a de cima
+# diziam `== 5`, escrito a mao, e as duas envelheceram no dia em que nasceu a
+# 6a familia. Contra `_ORDEM`, que e quem define as familias, elas nao
+# envelhecem mais.
+marcar("as %d familias carregam do JSON real" % len(REAIS),
+       len(REAIS) == len(mp._ORDEM))
+
+# E cada familia MORDE alguma coisa. Contar familia carregada nao prova
+# deteccao: um grupo com regex que nao casa nada passaria na contagem e
+# aprovaria a familia inteira em silencio.
+# O IP e MONTADO, pelo mesmo motivo das outras amostras positivas: escrito
+# inteiro, ele faria este arquivo ser reprovado pelo detector que ele prova.
+# O valor e o resolvedor publico mais conhecido do mundo, um digito repetido
+# quatro vezes, que nao identifica a maquina de ninguem.
+#
+# 🔑 E a primeira versao DESTE comentario escrevia o endereco por extenso para
+# explicar a montagem — e foi reprovada. O detector nao le intencao: ele le o
+# texto, e o texto tinha o IP. Explicar por que nao se escreve uma coisa nao e
+# licenca para escreve-la.
+IP_FALSO = amostra_positiva(*".".join("8888"))
+AMOSTRAS_POR_FAMILIA = {
+    "ip publico": "o servidor responde em %s desde ontem" % IP_FALSO,
+    "incidente com data": "o estrago foi em %s" % ("%02d/%02d" % (6, 9)),
+    "contato/URL": amostra_positiva("fulano", chr(64), "exemplo.com.br"),
+}
+for familia, amostra in sorted(AMOSTRAS_POR_FAMILIA.items()):
+    pegou = [n for n, rx in REAIS if rx.search(amostra) and n == familia]
+    marcar("   a familia `%s` morde de verdade" % familia, bool(pegou))
+
+# 🔑 E o caso que originou a familia do IP: ele passava por ACIDENTE. O `root@`
+# fazia a regex de e-mail casar, entao a linha era acusada — mas por outro
+# motivo. Sem usuario na frente, o mesmo IP passava limpo. Gate que acerta por
+# coincidencia acerta so enquanto a coincidencia durar.
+so_ip = "ping %s -c 1" % IP_FALSO
+por_ip = [n for n, rx in REAIS if rx.search(so_ip)]
+marcar("   IP SEM usuario na frente e pego (era o furo)",
+       "ip publico" in por_ip, str(por_ip))
+
+# -- O detector de CAMINHO, nos dois sentidos -------------------------------
+# 🔴 Duas mudancas, e as duas vieram de preparar uma porta para publicacao:
+#   · saiu `~/.claude`, que nao identifica ninguem (e o diretorio do agente em
+#     qualquer maquina) e e o ALVO do gate do Bash — os casos de teste dele
+#     precisam cita-lo pelo nome, e um detector que reprova o alvo do proprio
+#     gate torna a peca impublicavel por um motivo que nao e privacidade;
+#   · entrou o slug de projeto do agente, que carrega o nome do usuario do
+#     disco e passava limpo por TODOS os detectores. Nao chegou a vazar, mas
+#     so porque as portas ainda nao tinham sido publicadas.
+#
+# 🔑 Os dois sentidos importam igualmente, e e por isso que a lista tem casos
+# que DEVEM passar. Detector medido so pelo que ele pega vira pedra no
+# caminho, e pedra no caminho e desligada.
+# ⚠️ OS CAMINHOS USAM UM USUARIO FICTICIO, e nao o desta casa, por DOIS
+# motivos que so aparecem juntos ao rodar isto fora daqui:
+#   · com o nome real, a TROCA MECANICA os reescreve antes do detector ver: o
+#     caminho vira um marcador, e marcador nao e caminho, entao o caso "deve
+#     pegar" falha na versao publicada. E o mesmo defeito que ja fez o
+#     `destilar.py` corromper as proprias regex;
+#   · e o nome real dentro de um caso de teste e, ele proprio, o dado que o
+#     detector procura.
+#
+# 🔑 E saiu daqui o caso do caminho POSIX (`/c/Users/<nome>`): aquele padrao
+# depende de o NOME estar no catalogo, entao ele so passava nesta casa. Teste
+# que so passa numa maquina nao mede o detector, mede a maquina.
+CAMINHOS = [
+    (CAMINHO_FALSO, True, "absoluto Windows"),
+    # ⚠️ O slug e FICTICIO e ainda assim MONTADO, e as duas coisas por motivos
+    # diferentes. Ficticio porque o que se prova e o PADRAO, nao o nome desta
+    # casa. Montado porque amostra positiva, por definicao, casa o detector:
+    # escrita inteira, ela reprovaria o arquivo que prova o detector.
+    (SLUG_FALSO, True, "o slug (era o furo)"),
+    ("~/.claude/projects/" + SLUG_FALSO, True, "slug dentro de ~"),
+    ("~/.claude/hooks/", False, "generico: toda maquina tem"),
+    ("git -C ~/.claude " + "reset --hard", False, "o alvo do gate do Bash"),
+    ("~/Projeto/Alfa", False, "sem usuario no caminho"),
+]
+for txt, deve, porque in CAMINHOS:
+    pego = bool([n for n, rx in REAIS
+                 if rx.search(txt) and n == "caminho do disco"])
+    marcar("   caminho %s: %s" % ("PEGO" if deve else "livre", porque),
+           pego == deve, txt[:46])
+
+# E as faixas que nao identificam ninguem NAO sao acusadas: rede privada,
+# loopback e a faixa de documentacao da RFC 5737. Detector que reprova o
+# exemplo correto e desligado na segunda semana.
+for limpo in (amostra_positiva("http", "://", "192.168.0.10:8080"),
+              "127.0.0.1", "203.0.113.7", "a versao 1.2.3 do pacote"):
+    acusou = [n for n, rx in REAIS if rx.search(limpo) and n == "ip publico"]
+    marcar("   nao acusa `%s`" % limpo[:24], not acusou)
 
 catalogo_real = json.load(io.open(FONTE_REAL, encoding="utf-8"))
 
@@ -401,6 +507,39 @@ marcar("   e o que carregou de fato detecta",
        len([n for n, rx in REAIS if rx.search(frase_suja)]) >= 3)
 marcar("   sem acusar frase limpa",
        not [n for n, rx in REAIS if rx.search("Mede e devolve um numero.")])
+
+# 🔴 O `.exemplo` TEM DE CARREGAR, e este caso nasceu de ele nao carregar. Ao
+# acrescentar a familia do IP ao catalogo real, esqueci o `.exemplo` publicado
+# — e quem baixasse o repositorio receberia um arquivo que faz a peca levantar
+# na importacao. Exemplo que nao roda e documentacao errada com cara de certa,
+# e o pior tipo: quem baixa conclui que a peca esta quebrada.
+#
+# 🔑 O CI pegou. Mas depender do CI para isso e depender de alguem ler o CI:
+# aqui a mesma pergunta e feita na suite, que roda antes.
+#   · na casa ele mora em `publicado/`, porque so nasce na destilacao;
+#   · no repositorio publicado ele mora ao lado da peca, porque la nao ha
+#     `publicado/`. Procurar nos dois e o que faz esta checagem valer nos dois
+#     mundos — e era no segundo que o defeito estava.
+_NOME_EX = os.path.basename(mp.FONTE) + ".exemplo"
+EXEMPLO = ""
+for _cand in (os.path.join(SAIDA_ORIG, _NOME_EX),
+              os.path.join(AQUI, _NOME_EX)):
+    if os.path.isfile(_cand):
+        EXEMPLO = _cand
+        break
+if EXEMPLO:
+    try:
+        do_exemplo = mp.carregar_marcas(EXEMPLO)
+        erro_ex = ""
+    except Exception as e:                                  # noqa: BLE001
+        do_exemplo, erro_ex = [], "%s: %s" % (type(e).__name__, e)
+    marcar("o `privacidade.json.exemplo` publicado CARREGA",
+           len(do_exemplo) == len(mp._ORDEM), erro_ex or str(len(do_exemplo)))
+else:
+    # Dito na cara: o exemplo mora em `publicado/`, e ele so existe depois da
+    # primeira destilacao. Silencio aqui esconderia a checagem mais util.
+    print("  (nao medido: `%s` nao existe em publicado/ nem ao lado da peca)"
+          % _NOME_EX)
 
 sem_arquivo = os.path.join(SANDBOX, "nao_existe.json")
 try:

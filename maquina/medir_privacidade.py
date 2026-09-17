@@ -65,11 +65,20 @@ import inventario as inv                                    # noqa: E402
 # vazou ja vazou. Sem o arquivo, a peca levanta e para.
 FONTE = os.path.join(AQUI, "privacidade.json")
 
+# 🔴 A FAMILIA `ip publico` quase nao nasceu. Ao preparar a
+# porta do Bash para publicacao, o teste dela tinha o IP REAL de um servidor ao
+# lado do caminho de uma chave SSH. O detector ACUSOU aquela linha — mas por
+# acidente, porque o `root@` na frente fez a regex de e-mail casar. IP sem
+# usuario antes (num `ping`, num `curl`, num comentario) passaria limpo.
+#
+# 🔑 Gate que acerta por coincidencia acerta so enquanto a coincidencia durar,
+# e ninguem fica sabendo quando ela acaba.
 _ORDEM = [
     ("pessoa/empresa", "pessoa_empresa", True),
     ("caminho do disco", "caminho_do_disco", False),
     ("projeto interno", "projeto_interno", True),
     ("incidente com data", "incidente_com_data", False),
+    ("ip publico", "ip_publico", False),
     ("contato/URL", "contato_url", False),
 ]
 

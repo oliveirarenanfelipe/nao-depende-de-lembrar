@@ -70,6 +70,28 @@ A régua de trava é derivada, e não uma recomendação genérica, por um motiv
 "este projeto é sério?" é pergunta que cada dia responde diferente, e
 recomendação que não muda com a resposta vira ruído que se aprende a pular.
 
+### porta: a metade que recusa
+
+| peça | o que ela barra |
+|---|---|
+| `bash_na_porta.py` | comando de shell que pode destruir o trabalho, **antes de ele rodar**. Quatro eixos: destruir a pasta do agente, apagar coisa de outro dono, escrever em projeto alheio pelo Bash, e corromper texto acentuado em heredoc ou em busca |
+| `fronteira_lib.py` | não barra nada sozinha: é a única que responde *de que projeto é este caminho?*, e as portas perguntam a ela |
+
+Esta é a peça que o resto do repositório descreve e não entregava. As outras
+medem e consertam; esta **recusa**. Ela é um hook `PreToolUse` do Claude Code,
+declarado no seu `settings.json`, e o agente a executa antes de rodar cada
+comando.
+
+Os quatro eixos nasceram de quatro estragos, e cada um tem o número junto:
+5 hooks apagados por um heredoc que fechou cedo; uma pasta em `/tmp` que era
+clone de outro projeto; um script que gravou dentro de projeto alheio enquanto
+4 gates de escrita não viam nada; e 53 caracteres perdidos num arquivo que
+saiu UTF-8 válido, com exit 0, sem nenhum aviso.
+
+⚠️ O eixo da busca acentuada é o mais silencioso dos quatro, e o mais fácil de
+subestimar: `grep` com acento pelo shell devolve **0 ocorrências para texto que
+existe**. Não é um bug que aparece — é uma afirmação falsa com cara de medida.
+
 ### publicação: o que sai daqui foi medido antes de sair
 
 | peça | o que faz |
@@ -96,7 +118,8 @@ Não há dependência externa. Python 3, e só.
 ```bash
 cp maquina/privacidade.json.exemplo maquina/privacidade.json
 cp maquina/mapa.json.exemplo maquina/mapa.json
-# abra os dois e ponha os seus nomes, as suas contas, as suas peças
+cp portas/casa.json.exemplo portas/casa.json
+# abra os três e ponha os seus nomes, as suas contas, as suas peças
 
 python maquina/inventario.py          # a máquina está de pé?
 python maquina/o_basico.py            # a casa cuida do básico?
@@ -104,10 +127,23 @@ python maquina/ligar_ci.py --todos    # quem tem teste que nenhum CI roda
 python maquina/regua_de_trava.py <pasta-do-projeto>
 ```
 
-Os dois `.json` são dado, e o dado é seu. Sem eles as peças param com erro, de
-propósito: um detector que cai para lista vazia aprova tudo em silêncio, e um
-mapa vazio responde "nenhuma peça quebrada" sobre nenhuma peça. Falhar alto é
-a escolha, não o descuido.
+Os três `.json` são dado, e o dado é seu. Sem eles as peças param com erro, de
+propósito: um detector que cai para lista vazia aprova tudo em silêncio, um
+mapa vazio responde "nenhuma peça quebrada" sobre nenhuma peça, e uma
+fronteira que não sabe onde a casa começa responde "não há dono" para todo
+caminho — o que os gates leem como "pode escrever". Falhar alto é a escolha,
+não o descuido.
+
+A porta é um hook, então ela se liga no `settings.json` do Claude Code:
+
+```json
+{ "hooks": { "PreToolUse": [ { "matcher": "Bash", "hooks": [
+  { "type": "command",
+    "command": "python \"/caminho/para/portas/bash_na_porta.py\"" } ] } ] } }
+```
+
+Vale ler a peça antes de ligá-la. Ela vai recusar comandos seus, e o valor
+dela está exatamente aí.
 
 ---
 
@@ -124,9 +160,9 @@ python -B maquina/testar_regua_de_trava.py
 python -B maquina/testar_regua_de_complexidade.py
 ```
 
-Medido: 8 suítes, 145 checagens, 22 mutações, 0 sobrevivente.
+Medido: 9 suítes, 199 checagens, 28 mutações, 0 sobrevivente.
 
-Na casa de origem são 150. As 5 de diferença dependem de coisas que não vêm
+Na casa de origem são 204. As 5 de diferença dependem de coisas que não vêm
 neste repositório: a casa real com projetos dentro, e um dos gates, que mora
 na pasta do agente. Elas não somem em silêncio — o teste imprime o que deixou
 de medir e por quê. Teste que se pula calado vira enfeite.
