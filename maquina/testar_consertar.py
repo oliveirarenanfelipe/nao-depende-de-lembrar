@@ -224,6 +224,7 @@ IGNORE_PY_ORIG = list(ct.IGNORE_PY)
 IGNORE_JS_ORIG = list(ct.IGNORE_JS)
 CONTRATO_ORIG = ct.CONTRATO
 GITLEAKS_ORIG = ct.GITLEAKS
+PARSER_ORIG = ct.parser_de_toml
 
 
 def restaurar():
@@ -232,6 +233,7 @@ def restaurar():
     ct.IGNORE_JS = list(IGNORE_JS_ORIG)
     ct.CONTRATO = CONTRATO_ORIG
     ct.GITLEAKS = GITLEAKS_ORIG
+    ct.parser_de_toml = PARSER_ORIG
 
 
 def mut_ign_inerte():
@@ -251,6 +253,24 @@ def mut_toml_quebrado():
     ct.GITLEAKS = "[extend\nuseDefault = true\n"  # colchete nao fecha
 
 
+def mut_sem_parser():
+    """A mutacao que o CI achou e esta maquina nao conseguia achar sozinha.
+
+    🔴 Em Python 3.9 e 3.10 o `tomllib` nao existe. A peca fazia
+    `except ImportError: pass` e seguia "sem esta prova", o que significa
+    gravar uma config de scanner que ninguem conferiu. Config invalida faz o
+    gitleaks ABORTAR, e um scanner que aborta le igual a um scanner que nao
+    achou nada.
+
+    ⚠️ Esta mutacao NAO e sobre o TOML estar errado: e sobre a peca PERDER a
+    capacidade de conferir e gravar assim mesmo. Nesta maquina, que roda
+    3.12, o defeito era invisivel — o verde local dizia que estava tudo bem, e
+    estava tudo bem AQUI. Foi a matriz de versoes do CI que mostrou, e a licao
+    e da forma: uma suite que so roda numa versao prova aquela versao.
+    """
+    ct.parser_de_toml = lambda: None
+
+
 MUTACOES = [
     ("`.gitignore` que o git le e que nao ignora nada",
      "a peca tem de perguntar ao git e DESFAZER o arquivo inutil",
@@ -261,6 +281,10 @@ MUTACOES = [
     ("config de segredo com TOML invalido",
      "scanner que aborta le igual a scanner que nao achou nada",
      mut_toml_quebrado, "sec"),
+    ("a peca perde o parser de TOML (Python < 3.11 sem `tomli`)",
+     "sem como provar a config, a peca tem de RECUSAR gravar: scanner com "
+     "config invalida aborta, e aborto le igual a nada encontrado",
+     mut_sem_parser, "sec"),
 ]
 
 sobreviveram = []

@@ -287,6 +287,23 @@ def conserta_id(base, nome, aplicar):
     return True, "escrito vazio, provado pelo %s" % prova
 
 
+def parser_de_toml():
+    """O modulo que sabe ler TOML, ou None quando nao ha nenhum.
+
+    E funcao propria, e nao um `try/import` embutido, para que a prova possa
+    desarmar exatamente isto: sem o parser, a peca tem de RECUSAR gravar. Com
+    o import escondido dentro do conserto, a unica forma de testar esse
+    caminho era rodar noutra versao do Python — que foi como o defeito
+    sobreviveu aqui por tanto tempo.
+    """
+    for nome in ("tomllib", "tomli"):
+        try:
+            return __import__(nome)
+        except ImportError:
+            continue
+    return None
+
+
 def conserta_sec(base, nome, aplicar):
     alvo = os.path.join(base, ".gitleaks.toml")
     if os.path.isfile(alvo):
@@ -294,11 +311,24 @@ def conserta_sec(base, nome, aplicar):
     # PROVA ANTES: o TOML e parseado de verdade. Config invalida faz o gitleaks
     # abortar, e um scanner que aborta le igual a um scanner que nao achou nada
     # — [[concept-a-cegueira-que-responde-200]].
+    # 🔴 SEM PARSER, NAO GRAVA. Esta peca ja fez
+    # `except ImportError: pass` e seguia "sem esta prova" — o que em Python
+    # 3.9 e 3.10 significa escrever uma config que ninguem conferiu.
+    #
+    # E o modo de falha e o que o comentario acima ja nomeia: gitleaks com
+    # config invalida ABORTA, e um scanner que aborta le igual a um scanner
+    # que nao achou nada. A peca existe para instalar uma defesa; instalar uma
+    # defesa quebrada e pior que nao instalar, porque cria a crenca.
+    #
+    # 🔑 Quem mostrou foi o CI, na matriz de versoes: no Python 3.10 a mutacao
+    # "config com TOML invalido" SOBREVIVEU. Nesta maquina, que roda 3.12,
+    # ela era detectada — e o verde local dizia que estava tudo bem.
+    parser = parser_de_toml()
+    if parser is None:
+        return False, ("sem parser de TOML (Python < 3.11 e sem `tomli`): a "
+                       "config nao pode ser provada, entao nao e escrita")
     try:
-        import tomllib
-        tomllib.loads(GITLEAKS)
-    except ImportError:
-        pass                        # Python < 3.11: segue sem esta prova
+        parser.loads(GITLEAKS)
     except Exception as e:                                  # noqa: BLE001
         return False, "o TOML nao parseia (%s)" % type(e).__name__
     if not aplicar:

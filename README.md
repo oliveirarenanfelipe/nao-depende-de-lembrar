@@ -166,7 +166,7 @@ python -B maquina/testar_regua_de_trava.py
 python -B maquina/testar_regua_de_complexidade.py
 ```
 
-Medido: 16 suítes, 390 checagens, 51 mutações, 0 sobreviventes.
+Medido: 16 suítes, 401 checagens, 52 mutações, 0 sobreviventes.
 
 Na casa de origem são 204. As 5 de diferença dependem de coisas que não vêm
 neste repositório: a casa real com projetos dentro, e um dos gates, que mora

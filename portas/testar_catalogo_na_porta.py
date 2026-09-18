@@ -74,7 +74,8 @@ os.makedirs(os.path.join(PROJ, ".git"), exist_ok=True)   # ancora o os.walk
 print("== 0. SANDBOX (provado, nao prometido) ==")
 
 _sonda = os.path.join(SCRIPTS, "novo.py").lower()
-_culpados = [x for x in gate.IGNORAR if x in _sonda]
+_partes = [p for p in _sonda.replace("\\", "/").split("/") if p]
+_culpados = [p for p in _partes if p in gate.IGNORAR]
 # A mensagem CARREGA o termo culpado e o que fazer. Ela dizia so que o sandbox
 # caia nos isentos — verdade, e inutil para quem bate nela: o teste mora ao
 # lado da peca, entao o caminho e do disco de quem clonou, e ninguem adivinha
@@ -88,9 +89,39 @@ assert not _culpados, (
     % (", ".join("`%s`" % c for c in _culpados), _sonda))
 marcar("sandbox NAO cai nos isentos do gate", True)
 
-_temp = os.path.join(tempfile.gettempdir(), "p", "novo.py").lower()
-marcar("e a pasta temporaria cairia (por isso o sandbox nao mora la)",
-       any(x in _temp for x in gate.IGNORAR))
+# 🔴 OS DOIS SISTEMAS, e nao so o desta maquina. A lista `IGNORAR` dizia
+# `"\\temp\\"` e `"/temp/"` — as grafias do Windows — e nao conhecia `/tmp`,
+# que e o nome real no Linux e no Mac. Quem rodasse isto fora do Windows tinha
+# o gate analisando arquivo temporario e o interior do `.git`, em silencio.
+#
+# Foi o CI, na primeira publicacao, que mostrou. Um teste que so exercita o
+# caminho da maquina de quem escreveu prova o sistema operacional de quem
+# escreveu, nunca a peca.
+_temp = os.path.join(tempfile.gettempdir(), "p", "novo.py")
+marcar("a pasta temporaria DESTA maquina cairia", gate.em_pasta_ignorada(_temp))
+# ⚠️ O caminho Windows e MONTADO, nunca escrito: `[A-Z]:\Users\` e estrutural
+# e o detector de privacidade acusa qualquer um, inclusive o inventado — que
+# e justamente o que se quer provar aqui.
+_B = chr(92)
+_WIN_TEMP = ("C:" + _B + "Users" + _B + "x" + _B + "AppData" + _B + "Local"
+             + _B + "Temp" + _B + "p" + _B + "novo.py")
+for _caso in ("/tmp/p/novo.py", "/var/tmp/p/novo.py", _WIN_TEMP,
+              "/home/runner/proj/.git/hooks/x.py",
+              "C:" + _B + "proj" + _B + ".git" + _B + "hooks" + _B + "x.py",
+              "/home/runner/proj/node_modules/lib/x.js"):
+    marcar("   e `%s` tambem" % _caso[:38], gate.em_pasta_ignorada(_caso))
+
+# ⚠️ O OUTRO LADO, sem o qual a regra vira pedra: comparar SEGMENTO, nunca
+# substring. Um arquivo chamado `temperatura.py` nao mora numa pasta `temp`.
+for _limpo in ("/home/x/proj/temperatura.py", "/home/x/tmpfiles/novo.py",
+               "C:\\proj\\scripts\\tasksheet.py",
+               "/home/x/proj/scripts/novo.py"):
+    marcar("passa: `%s` nao esta em pasta ignorada" % _limpo[:34],
+           not gate.em_pasta_ignorada(_limpo))
+
+# E a mutacao: lista vazia tem de deixar TUDO passar pelo gate.
+marcar("com a lista vazia, nada e ignorado",
+       not gate.em_pasta_ignorada("/tmp/x.py", ignorar=[]))
 
 # O catalogo REAL tem 200+ linhas e muda toda semana: um teste que o
 # lesse mediria o catalogo, nao o gate, e reprovaria sozinho no dia em que

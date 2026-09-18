@@ -99,8 +99,31 @@ def catalogo_do_disco(fonte=None):
 
 
 MOC = catalogo_do_disco()
-IGNORAR = ("scratchpad", "\\temp\\", "/temp/", "node_modules", "graphify-out",
-           "__pycache__", "\\tasks\\", ".git\\", "_vsl_tmp")
+# 🔴 AS PASTAS QUE O GATE NAO OLHA — por SEGMENTO, nunca por pedaco de string
+# com barra dentro.
+#
+# A lista dizia `"\\temp\\"` e `"/temp/"`, que sao as duas formas do Windows e
+# de um caminho POSIX chamado `temp`. Ela nao conhecia `/tmp`, que e o nome
+# real no Linux e no Mac, nem `.git/` com barra para frente. Quem rodasse isto
+# fora do Windows tinha o gate analisando arquivo temporario e o interior do
+# `.git` — em silencio, porque um gate que analisa demais so parece chato.
+#
+# 🔑 Escrever o separador de caminho dentro do termo e o defeito: ele amarra a
+# regra a um sistema operacional e obriga a lembrar de TODAS as grafias. Aqui
+# o caminho e quebrado em segmentos e o que se compara e o NOME da pasta.
+IGNORAR = ("scratchpad", "temp", "tmp", "node_modules", "graphify-out",
+           "__pycache__", "tasks", ".git", "_vsl_tmp")
+
+
+def em_pasta_ignorada(caminho, ignorar=None):
+    """O caminho passa por alguma pasta que o gate nao olha?
+
+    ⚠️ Compara SEGMENTO, nao substring: `temperatura.py` nao mora numa pasta
+    chamada `temp`, e um detector que casa substring diria que sim.
+    """
+    partes = [p for p in caminho.replace("\\", "/").lower().split("/") if p]
+    alvo = set(IGNORAR if ignorar is None else ignorar)
+    return any(p in alvo for p in partes)
 
 
 def _ja_perguntei(sessao, alvo):
@@ -215,8 +238,7 @@ def main():
         return
     if os.path.exists(alvo):
         return                                  # editar não é criar
-    baixo = alvo.lower()
-    if any(x in baixo for x in IGNORAR):
+    if em_pasta_ignorada(alvo):
         return
     if _ja_perguntei(ent.get("session_id"), os.path.abspath(alvo)):
         return
