@@ -326,10 +326,20 @@ restaurar()
 # -- 4. CONTROLE -------------------------------------------------------------
 print("\n== 4. controle: restaurado, os 3 voltam a gravar ==")
 ctrl = monta("ctrl")
+# ⚠️ O `sec` depende de haver parser de TOML, e em Python 3.9 e 3.10 nao ha.
+# Exigir que ele grave ali seria exigir o comportamento errado — o mesmo
+# descuido que ja fez esta suite reprovar nas versoes em que a peca acertava.
+# O controle pergunta o que cabe: restaurado, cada conserto volta ao veredito
+# CERTO dele, que nem sempre e "gravou".
+_sem_toml = ct.parser_de_toml() is None
 for chave in ("ign", "id", "sec"):
     funcao = [f for c, _r, f in ct.CONSERTOS if c == chave][0]
     feito, det = funcao(ctrl, "ctrl", aplicar=True)
-    marcar("controle: %s volta a ser escrito" % chave, feito is True, det)
+    if chave == "sec" and _sem_toml:
+        marcar("controle: sec volta a RECUSAR (sem parser de TOML)",
+               feito is False and "parser" in det, det)
+    else:
+        marcar("controle: %s volta a ser escrito" % chave, feito is True, det)
 
 print("\n== prova final: ~/Projeto real intocado ==")
 ob.RAIZ = RAIZ_ORIG
