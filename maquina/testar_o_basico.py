@@ -22,7 +22,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import o_basico as ob                                       # noqa: E402
+import o_basico as ob  # noqa: E402
 
 PASS = 0
 FALHA = 0

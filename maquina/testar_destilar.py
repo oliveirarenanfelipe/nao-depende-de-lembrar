@@ -40,14 +40,14 @@ import tempfile
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import destilar as ds                                       # noqa: E402
-import inventario as inv                                    # noqa: E402
-import medir_privacidade as mp                              # noqa: E402
+import destilar as ds  # noqa: E402
+import inventario as inv  # noqa: E402
+import medir_privacidade as mp  # noqa: E402
 
 PASS = 0
 FALHA = 0
@@ -541,6 +541,100 @@ else:
     print("  (nao medido: `%s` nao existe em publicado/ nem ao lado da peca)"
           % _NOME_EX)
 
+# -- O QUE JA E PUBLICO POR DECISAO -----------------------------------------
+# 🔴 Os arquivos de governanca do repositorio publico (README, CHANGELOG,
+# SECURITY, CODE_OF_CONDUCT) foram TODOS reprovados pelo detector, e sempre
+# pelo mesmo motivo: eles citam a URL do proprio repositorio, e ela carrega o
+# nome da conta.
+#
+# A saida errada seria isentar os arquivos inteiros. O README e justamente o
+# que mais fala de gente: isenta-lo deixaria passar um nome de cliente escrito
+# ali, que e o caso que mais importa pegar. Entao o recorte e por STRING.
+#
+# 🔑 Este grupo mede os DOIS lados, e o segundo e o que impede a isencao de
+# virar buraco: a linha publica deixa de acusar, E uma linha com nome novo
+# continua acusando mesmo estando ao lado da URL publica.
+print("\n== 2g. o publico declarado recorta por STRING, nao por arquivo ==")
+
+# A URL de exemplo e MONTADA, pela mesma razao das outras amostras positivas:
+# escrita inteira, ela reprovaria o arquivo que prova o filtro.
+URL_FALSA = amostra_positiva("github", ".com/alguem/projeto-publico")
+HTTPS = amostra_positiva("http", "s://")
+PUB_FALSO = [URL_FALSA, "img.shields.io"]
+_linha_pub = "[![ci](%s%s/x.yml)](%s%s)" % (HTTPS, URL_FALSA, HTTPS, URL_FALSA)
+marcar("a URL declarada publica deixa de acusar",
+       not [n for n, rx in REAIS
+            if rx.search(mp.limpa_publicos(_linha_pub, PUB_FALSO))])
+
+# ⚠️ O token INTEIRO sai, nao so a string. A 1a versao trocava o pedaco por
+# vazio e sobrava um esqueleto de URL, que continua casando a regex. Meio
+# conserto produzia o falso positivo que ele existia para tirar.
+marcar("   e o que sobra nao e um esqueleto de URL",
+       HTTPS not in mp.limpa_publicos(_linha_pub, PUB_FALSO),
+       repr(mp.limpa_publicos(_linha_pub, PUB_FALSO)[:50]))
+
+# O LADO QUE IMPEDE O BURACO: nome novo ao lado da URL publica continua pego.
+_linha_mista = "veja em %s%s o caso de %s" % (
+    HTTPS, URL_FALSA, termo_literal("pessoa_empresa"))
+marcar("nome NOVO na mesma linha da URL publica CONTINUA acusando",
+       bool([n for n, rx in REAIS
+             if rx.search(mp.limpa_publicos(_linha_mista, PUB_FALSO))
+             and n == "pessoa/empresa"]))
+
+# E lista vazia e valida: quem nao declara nada publico nao perde deteccao.
+marcar("sem nada declarado, o texto passa inteiro pelo detector",
+       mp.limpa_publicos(_linha_pub, []) == _linha_pub)
+
+# -- 2h. A FORMA publica isenta UMA LINHA, e nao pode virar um portao -------
+# 🔴 Este grupo existe porque a isencao por FORMA e a mais perigosa das tres.
+# Um padrao frouxo aqui nao isenta uma linha: DESLIGA o detector para todo
+# mundo, e o sintoma e um relatorio verde — nunca um erro. Entao a prova mede
+# os dois lados, e o segundo pesa mais que o primeiro.
+print("\n== 2h. a forma publica isenta a LINHA, nunca o arquivo ==")
+
+# As datas sao MONTADAS, pela mesma razao das outras amostras deste arquivo: a
+# marca `incidente com data` acusa qualquer data escrita inteira, e este teste
+# precisa justamente de datas para provar a forma. Escritas, elas reprovariam
+# o arquivo que as usa.
+ISO = amostra_positiva("20", "26", "-09-", "18")
+DDMM = amostra_positiva("18", "/", "09")
+
+marcar("o cabecalho de versao do Keep a Changelog e estrutura",
+       mp.e_estrutura("## [0.1.0] - %s" % ISO))
+marcar("   e o rodape de link da versao tambem",
+       mp.e_estrutura("[0.1.0]: %s%s/releases/tag/v0.1.0" % (HTTPS, URL_FALSA)))
+marcar("   e `[Unreleased]` tambem, que e o topo de todo changelog",
+       mp.e_estrutura("## [Unreleased]"))
+
+# ⚠️ OS QUATRO LADOS QUE IMPEDEM O BURACO. Cada um e uma forma de escrever a
+# mesma data que a forma NAO pode aceitar, porque ai ela deixaria de ser
+# estrutura e viraria uma licenca para contar incidente.
+_prosa = "## [0.1.0] - %s %s quebrou no cliente" % (ISO, chr(0x2014))
+marcar("cabecalho com PROSA depois da data NAO e estrutura",
+       not mp.e_estrutura(_prosa))
+marcar("   e continua acusando a data que ele carrega",
+       bool(mp.marcas_da_linha(_prosa, marcas=REAIS)))
+_solta = "achado em %s pela checagem do inventario" % DDMM
+marcar("uma data solta em prosa NAO e estrutura",
+       not mp.e_estrutura(_solta))
+marcar("   e continua acusando",
+       bool(mp.marcas_da_linha(_solta, marcas=REAIS)))
+marcar("linha que so PARECE cabecalho (sem colchete) nao e estrutura",
+       not mp.e_estrutura("## 0.1.0 - %s" % ISO))
+
+# O lado que mais importa: nome de pessoa dentro de algo com cara de
+# cabecalho continua sendo pego, porque a forma exige a linha INTEIRA.
+_falso_cabecalho = "## [0.1.0] - %s %s" % (ISO,
+                                           termo_literal("pessoa_empresa"))
+marcar("nome de pessoa colado num cabecalho CONTINUA acusando",
+       "pessoa/empresa" in mp.marcas_da_linha(_falso_cabecalho,
+                                             marcas=REAIS),
+       str(mp.marcas_da_linha(_falso_cabecalho, marcas=REAIS)))
+
+# E o dado pode ser vazio: quem nao declara forma nenhuma nao perde deteccao.
+marcar("sem forma declarada, tudo volta a ser conferido",
+       not mp.e_estrutura("## [0.1.0] - %s" % ISO, formas=[]))
+
 sem_arquivo = os.path.join(SANDBOX, "nao_existe.json")
 try:
     mp.carregar_marcas(sem_arquivo)
@@ -548,6 +642,42 @@ try:
 except Exception:                                           # noqa: BLE001
     levantou = True
 marcar("SEM o arquivo, levanta erro (nao devolve lista vazia)", levantou)
+
+# -- 2i. O `.exemplo` TEM DE ENSINAR A MESMA COISA QUE O REAL ---------------
+# 🔴 ESTE GRUPO NASCEU DE DOIS DEFEITOS QUE SO APARECERAM FORA DE CASA. O
+# `privacidade.json.exemplo` estava sem `publico_declarado` e sem
+# `forma_publica`. Aqui tudo passava, porque aqui o arquivo real esta
+# completo. Quem baixasse o repositorio teria o detector acusando toda URL de
+# governanca e todo cabecalho de changelog — e leria isso como "o detector e
+# barulhento", nunca como "faltou um pedaco do dado".
+#
+# 🔑 Exemplo incompleto e documentacao errada com cara de certa, e o custo
+# cai inteiro em quem clonou. Entao a pergunta e feita aqui: as CHAVES do
+# exemplo e do real tem de bater. Os VALORES podem e devem diferir — um e o
+# dado desta casa, o outro e o ponto de partida de outra.
+print("\n== 2i. o `.exemplo` ensina a mesma coisa que o real ==")
+
+# ⚠️ E O PROPRIO GUARDIAO NASCEU COM O DEFEITO QUE ELE PEGA. A primeira versao
+# procurava o `.exemplo` so em `publicado/`, que e o arranjo DESTA casa — e
+# reprovava em todo clone, onde o exemplo ja mora ao lado do real. Esta lista
+# de lugares e o conserto, e fica escrita porque a licao se repete: peca que
+# viaja nao pode conhecer um endereco so.
+PARES = ["privacidade.json", "mapa.json", "publicar_isentos.json"]
+for _real in PARES:
+    cr = os.path.join(AQUI, _real)
+    ce = ([c for c in (os.path.join(AQUI, "publicado", _real + ".exemplo"),
+                       os.path.join(AQUI, _real + ".exemplo"))
+           if os.path.isfile(c)] or [""])[0]
+    if not (os.path.isfile(cr) and ce):
+        marcar("o par %s existe num dos arranjos" % _real, False,
+               "real=%s exemplo=%s" % (os.path.isfile(cr), bool(ce)))
+        continue
+    kr = set(json.load(io.open(cr, encoding="utf-8")))
+    ke = set(json.load(io.open(ce, encoding="utf-8")))
+    marcar("`%s` ensina as mesmas chaves do real" % os.path.basename(ce),
+           kr == ke,
+           "falta no exemplo: %s | sobra: %s"
+           % (sorted(kr - ke) or "-", sorted(ke - kr) or "-"))
 
 vazio = os.path.join(SANDBOX, "vazio.json")
 io.open(vazio, "w", encoding="utf-8").write(

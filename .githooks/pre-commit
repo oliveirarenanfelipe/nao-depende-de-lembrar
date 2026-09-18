@@ -1,0 +1,40 @@
+#!/bin/sh
+# O GATE NA PORTA DO COMMIT — Python puro, zero dependencia.
+#
+# Ele roda o `maquina/antes_de_publicar.py`, que mede as tres superficies do
+# que vai subir: o que esta versionado, o que espera um `git add .`, e as
+# mensagens de commit.
+#
+# COMO LIGAR, uma vez por clone:
+#
+#     git config core.hooksPath .githooks
+#
+# POR QUE NAO `pre-commit` (a ferramenta): ela exige `pip install pre-commit`,
+# e este repositorio declara zero dependencia. Um gate que so funciona depois
+# de instalar algo e um gate que a maioria nao liga.
+#
+# ⚠️ ISTO E A SEGUNDA CAMADA, NAO A PRIMEIRA. O hook depende de alguem rodar
+# o `git config` acima, e por isso nao pode ser a unica defesa — quem nao
+# rodar nao tem gate nenhum, em silencio. A defesa que nao depende de ninguem
+# lembrar e o job `o-que-sobe` no CI, que roda em toda PR. Este hook existe
+# para dar a resposta ANTES de gastar uma rodada de CI.
+#
+# Para passar por cima num caso legitimo: `git commit --no-verify`.
+set -e
+
+if [ ! -f maquina/antes_de_publicar.py ]; then
+    echo "pre-commit: `maquina/antes_de_publicar.py` nao encontrado." >&2
+    echo "pre-commit: rode o commit da raiz do repositorio." >&2
+    exit 1
+fi
+
+PY=python
+command -v python >/dev/null 2>&1 || PY=python3
+
+if ! "$PY" -B maquina/antes_de_publicar.py .; then
+    echo "" >&2
+    echo "pre-commit: o gate REPROVOU. Nada foi commitado." >&2
+    echo "pre-commit: conserte o que ele apontou, ou use --no-verify se" >&2
+    echo "pre-commit: voce tem um motivo e sabe qual e." >&2
+    exit 1
+fi

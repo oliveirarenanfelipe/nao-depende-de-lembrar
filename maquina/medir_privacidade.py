@@ -37,12 +37,12 @@ import sys
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import inventario as inv                                    # noqa: E402
+import inventario as inv  # noqa: E402
 
 # 🔴 OS NOMES SAIRAM DO CODIGO, e o motivo e o melhor argumento que
 # esta peca ja produziu: ao destilar a maquina para publicacao, ELA FOI
@@ -104,15 +104,115 @@ def carregar_marcas(fonte=None):
 MARCAS = carregar_marcas()
 
 
-def medir_texto(t):
+def carregar_publicos(fonte=None):
+    """As strings que ja sao PUBLICAS por decisao. Lista vazia e valida."""
+    with io.open(fonte or FONTE, encoding="utf-8") as fh:
+        return [p for p in (json.load(fh).get("publico_declarado") or []) if p]
+
+
+PUBLICOS = carregar_publicos()
+
+
+def carregar_formas(fonte=None):
+    """As FORMAS de linha que sao estrutura de arquivo, nao conteudo.
+
+    🔴 POR QUE ISTO E DIFERENTE DE ISENTAR UM ARQUIVO, e a diferenca e a
+    licao mais cara desta casa. O gate ja isentou por PREFIXO de nome
+    (`EXEMPLO-`) e deixou passar 4 linhas privadas — porque isencao por nome
+    cresce sozinha: basta batizar o proximo arquivo igual.
+
+    Aqui a isencao e por FORMA, e a linha INTEIRA tem de casar. O caso que
+    obrigou foi o cabecalho de versao do Keep a Changelog, que traz a data do
+    lancamento. A data ali e o formato do arquivo; a marca `incidente com
+    data` existe para pegar outra coisa — *"achado na checagem X, no dia
+    tal"*, que conta um episodio interno.
+
+    ⚠️ Uma forma frouxa desliga o detector inteiro, e por isso cada padrao
+    aqui e ANCORADO nas duas pontas e tem prova propria no
+    `testar_destilar.py`. O resto do arquivo continua sendo conferido linha a
+    linha: isto isenta uma LINHA que e so estrutura, nunca um arquivo.
+    """
+    with io.open(fonte or FONTE, encoding="utf-8") as fh:
+        cru = [f for f in (json.load(fh).get("forma_publica") or []) if f]
+    return [re.compile(f) for f in cru]
+
+
+FORMAS = carregar_formas()
+
+
+def e_estrutura(linha, formas=None):
+    """A linha INTEIRA e so estrutura de arquivo?"""
+    for rx in (FORMAS if formas is None else formas):
+        if rx.match(linha.strip()):
+            return True
+    return False
+
+
+def limpa_publicos(linha, publicos=None):
+    """A linha sem o que ja e publico por decisao.
+
+    🔴 POR QUE ISTO EXISTE, e por que NAO e uma isencao de arquivo. Os
+    arquivos de governanca do repositorio publico — README, CHANGELOG,
+    SECURITY, CODE_OF_CONDUCT — citam a URL do proprio repositorio, e ela
+    carrega o nome da conta. Todos foram reprovados por isso.
+
+    A saida errada seria isentar os arquivos inteiros. O README e justamente o
+    que mais fala de gente: isenta-lo deixaria passar um nome de cliente
+    escrito ali, que e o caso que mais importa pegar.
+
+    Entao o recorte e por STRING, nao por arquivo: some-se do texto o que ja
+    esta publico por decisao, e confere-se TODO o resto normalmente. Uma URL
+    do proprio projeto deixa de acusar; um nome novo na mesma linha continua
+    acusando.
+
+    ⚠️ Apaga o TOKEN INTEIRO que contem a string, e nao so a string. A
+    primeira versao trocava o pedaco por vazio, e o endereco do proprio
+    repositorio virava um esqueleto de URL que continuava casando a regex.
+    Meio conserto aqui produz exatamente o falso positivo que ele foi escrito
+    para tirar.
+    """
+    for p in (publicos if publicos is not None else PUBLICOS):
+        if p not in linha:
+            continue
+        saida = []
+        for token in linha.split(" "):
+            saida.append("" if p in token else token)
+        linha = " ".join(saida)
+    return linha
+
+
+def marcas_da_linha(linha, publicos=None, marcas=None, formas=None):
+    """AS MARCAS QUE UMA LINHA CARREGA — a única régua do que é privado.
+
+    🔴 ESTA FUNCAO NASCEU DE UM DEFEITO DE DESENHO. A limpeza do que
+    ja e publico vivia so no `destilar.sujeira()`, e o efeito foi o que esta
+    casa proibe por escrito no docstring do proprio `--conferir`: **duas
+    reguas do que e privado**. O `--conferir` respondia `49 de 49 LIMPO`
+    enquanto o `medir_texto` acusava 28 linhas nos MESMOS arquivos — todas a
+    URL do repositorio publico, que e o conteudo do arquivo e nao um
+    vazamento.
+
+    🔑 Quem decide o que e privado tem de ser UM SO. Com a regra em quem
+    chama, cada chamador novo nasce com a regua errada e ninguem percebe: a
+    divergencia aparece como um numero plausivel, nunca como um erro.
+    """
+    if e_estrutura(linha, formas):
+        return []
+    alvo = limpa_publicos(linha, publicos)
+    return [nome for nome, rx in (MARCAS if marcas is None else marcas)
+            if rx.search(alvo)]
+
+
+def medir_texto(t, publicos=None, marcas=None, formas=None):
     """Devolve (linhas, linhas_sujas, {marca: n}) para um texto."""
     linhas = t.split(chr(10))
+    achadas = [marcas_da_linha(l_, publicos, marcas, formas) for l_ in linhas]
     por_marca = {}
     sujas = set()
-    for nome, rx in MARCAS:
+    for nome, _rx in (MARCAS if marcas is None else marcas):
         n = 0
-        for i, l in enumerate(linhas):
-            if rx.search(l):
+        for i, quais in enumerate(achadas):
+            if nome in quais:
                 n += 1
                 sujas.add(i)
         por_marca[nome] = n
@@ -135,7 +235,7 @@ def main():
           % ("peca", "linhas", "sujas", "%", "o que aparece"))
     print("-" * 96)
     tot_l = tot_s = 0
-    for cat, nome, pasta, teste, _ in inv.PECAS:
+    for _cat, nome, pasta, _teste, _ in inv.PECAS:
         m = medir(inv.caminho(pasta, nome))
         if not m:
             continue

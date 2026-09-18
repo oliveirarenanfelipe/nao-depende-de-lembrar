@@ -4,6 +4,12 @@ A máquina que faz a casa construir direito sem depender de ninguém lembrar.
 
 *[English](README.en.md)*
 
+[![testes](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/testes.yml/badge.svg)](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/testes.yml)
+[![codeql](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/codeql.yml/badge.svg)](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/codeql.yml)
+![python](https://img.shields.io/badge/python-3.9%2B-blue)
+![licenca](https://img.shields.io/badge/licen%C3%A7a-MIT-green)
+![dependencias](https://img.shields.io/badge/depend%C3%AAncias-nenhuma-lightgrey)
+
 ---
 
 Todo mundo que trabalha com um agente de código acaba com a mesma coleção de
@@ -160,7 +166,7 @@ python -B maquina/testar_regua_de_trava.py
 python -B maquina/testar_regua_de_complexidade.py
 ```
 
-Medido: 9 suítes, 199 checagens, 28 mutações, 0 sobrevivente.
+Medido: 16 suítes, 340 checagens, 42 mutações, 0 sobreviventes.
 
 Na casa de origem são 204. As 5 de diferença dependem de coisas que não vêm
 neste repositório: a casa real com projetos dentro, e um dos gates, que mora

@@ -1,0 +1,66 @@
+# Configuracao do `ruff`, o lint deste projeto.
+#
+# 🔴 O NUMERO QUE DESENHOU ESTE ARQUIVO: no padrao, o ruff acusa 509 erros
+# aqui. Desses, 344 sao DOIS avisos de modernizacao (`%` em vez de f-string, e
+# `io.open` em vez de `open`), que sao escolhas desta casa, nao defeitos.
+#
+# Ligar tudo daria um lint que grita 509 vezes e e desligado na segunda
+# semana. Ligar nada daria um lint que nao acha o `shell=True` com nome de
+# arquivo vindo do disco — que estava aqui, e era real.
+#
+# Entao a regra: **liga o que pega defeito, desliga o que pega estilo.**
+
+# `publicado/` e SAIDA gerada pelo destilador, nao fonte. Lintar o gerado
+# duplica todo achado e faz o numero mentir para cima.
+exclude = ["publicado", "_rascunho"]
+
+target-version = "py39"
+line-length = 88
+
+[lint]
+select = [
+  "E",    # pycodestyle: erro de formatacao que atrapalha a leitura
+  "F",    # pyflakes: nome nao usado, import morto, variavel indefinida
+  "W",    # pycodestyle: espaco em branco
+  "I",    # isort: ordem dos imports
+  "B",    # bugbear: armadilha real de Python
+  "S",    # bandit: SEGURANCA. E por causa deste que o lint existe aqui
+]
+
+ignore = [
+  # 🔵 ESCOLHAS DA CASA, e cada uma tem motivo. Silenciar sem motivo escrito e
+  # como a lista de ignorados cresce ate o lint nao olhar mais nada.
+  #
+  # `%s` em vez de f-string: o codigo usa `%` de ponta a ponta, inclusive nas
+  # mensagens longas que os gates imprimem, onde a f-string com aspas dentro
+  # de aspas fica ilegivel. Trocar 264 ocorrencias seria um diff que ninguem
+  # revisa, pelo ganho de zero.
+  "UP031",
+  # `io.open` em vez de `open`: as pecas abrem arquivo com encoding explicito
+  # em toda parte, e o `io.` deixa isso visivel na leitura.
+  "UP009", "UP020",
+  # `assert` em teste: e o instrumento do teste. Proibi-lo aqui seria proibir
+  # o teste de testar.
+  "S101",
+  # `subprocess` sem caminho absoluto: as pecas chamam `git` e `python`, que
+  # vem do PATH de propósito. Fixar o caminho quebraria em toda maquina que
+  # nao e esta.
+  "S607",
+  # `subprocess` com entrada de fora: este e o aviso que APONTA para o risco
+  # real, e ele ja foi tratado com filtro de nome + execucao sem shell. Fica
+  # ignorado com esta linha para nao esconder um S602 novo no meio do ruido.
+  "S603",
+]
+
+[lint.per-file-ignores]
+# Os testes montam casos de codigo ruim de propósito: e isso que eles provam.
+"**/testar_*.py" = [
+  "S105", "S106",  # senha de mentira nas amostras
+  "S108",          # caminho em /tmp: e o sandbox
+  "E501",          # linha longa numa amostra e mais legivel que quebrada
+]
+# 🔴 O `S602` (shell=True) NAO esta ignorado em lugar nenhum, e nao deve ficar.
+# Ele foi o achado que motivou este arquivo.
+
+[lint.isort]
+known-first-party = ["maquina", "portas"]

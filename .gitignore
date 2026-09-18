@@ -7,7 +7,24 @@
 maquina/privacidade.json
 maquina/mapa.json
 maquina/reescritas.json
+maquina/publicar_isentos.json
 portas/casa.json
+portas/seeds_inseguros.json
+
+# O QUE NASCE DE RODAR OS TESTES.
+#
+# Estas linhas nao estavam aqui, e a falta foi medida ao publicar: rodar a suite
+# uma vez deixava quatro arquivos soltos, dois deles com o caminho absoluto do
+# disco de quem rodou escrito dentro. Nenhum estava commitado — estavam a um
+# `git add .` de distancia, que e a mesma coisa com um dia a menos.
+#
+# O `maquina/antes_de_publicar.py` existe para que a proxima falta destas seja
+# ACUSADA em vez de descoberta. Esta lista e o conserto; ele e a garantia.
+portas/gates.log
+*.estado.json
+.coverage
+coverage.xml
+htmlcov/
 
 # Saida de trabalho
 maquina/publicado/
@@ -17,4 +34,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.ruff_cache/
+.pytest_cache/
 .DS_Store

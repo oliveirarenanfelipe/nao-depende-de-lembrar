@@ -1,0 +1,20 @@
+{
+  "_leia": [
+    "OS ARQUIVOS QUE O GATE DO `push` NAO MEDE — e o motivo de cada um,",
+    "numa linha.",
+    "",
+    "A regra veio de um defeito ja pago: o gate isentava por PREFIXO",
+    "(`EXEMPLO-`), e isencao por prefixo CRESCE SOZINHA — basta batizar o",
+    "proximo arquivo igual, e ninguem precisa decidir isentar nada. Aqui a",
+    "isencao e por NOME EXATO, e se o motivo nao couber numa linha nao e",
+    "isencao: e buraco.",
+    "",
+    "⚠️ Este arquivo so DIMINUI o que se mede. Se ele sumir, o gate cai para",
+    "zero isentos e reprova MAIS — nunca menos."
+  ],
+  "isentos": {
+    "LICENSE": "a MIT exige o titular; tirar o nome nao e destilar, e invalidar a licenca",
+    "CODEOWNERS": "o dono do codigo e um handle do GitHub, e e o conteudo do arquivo",
+    ".github/CODEOWNERS": "idem — o caminho real dentro do repositorio publicado"
+  }
+}

@@ -25,13 +25,13 @@ import tempfile
 # acento e ate U+FFFD. O console do Windows e cp1252 e morre neles.
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import ligar_ci as lc                                       # noqa: E402
-import o_basico as ob                                       # noqa: E402
+import ligar_ci as lc  # noqa: E402
+import o_basico as ob  # noqa: E402
 
 PASS = 0
 FALHA = 0
@@ -121,6 +121,64 @@ try:
     wf3 = os.path.join(b, ".github", "workflows", "testes.yml")
     diz("sem --escrever, nada vai para o disco",
         ok3 and not os.path.isfile(wf3))
+
+    # -- 4b. INJECAO DE COMANDO: o nome do arquivo vem do disco ALHEIO -------
+    # 🔴 O `provar()` ja rodou com `shell=True`, e o nome do arquivo de
+    # teste era interpolado direto no comando. Um arquivo chamado
+    # `testar_x.py && <comando>` executava o `<comando>` em 30 projetos. E o
+    # mesmo texto ia para o `run:` do workflow, levando a injecao para o CI do
+    # projeto alvo.
+    #
+    # A prova aqui e de EFEITO, nao de forma: o teste planta um arquivo cujo
+    # nome tenta criar uma sonda no disco, roda a peca, e exige que a sonda
+    # NAO exista. Afirmar "agora usa lista de argumentos" seria descrever o
+    # conserto; isto mede se ele segura.
+    print(N + "== 4b. INJECAO pelo NOME do arquivo (o disco e de outro dono) ==")
+    # ⚠️ O nome hostil NAO usa `>` nem aspas de proposito: o Windows recusa
+    # esses caracteres em nome de arquivo, e um teste que nao consegue PLANTAR
+    # o caso nao mede nada. `&` e espaco o Windows aceita — e `&&` e tudo o
+    # que a injecao precisa. A carga util fica num script separado, para o
+    # nome ficar dentro do que o sistema de arquivos permite.
+    SONDA = os.path.join(raiz, "SONDA_INJECAO.txt")
+    b = repo(raiz, "injecao", {"testar_ok.py": "print('ok')" + N})
+    escreve(os.path.join(b, "carga.py"),
+            "import io\nio.open(r'%s','w').write('injetado')\n"
+            % SONDA.replace("\\", "\\\\"))
+    hostil = "testar_ok.py && python carga.py"
+    try:
+        escreve(os.path.join(b, hostil), "print('nao devia rodar')" + N)
+        plantou = True
+    except OSError:
+        # Windows recusa alguns caracteres em nome de arquivo. O teste diz
+        # isso em vez de fingir que mediu.
+        plantou = False
+
+    if plantou:
+        lc.um("injecao", escrever=True)
+        diz("o nome hostil NAO virou comando (sonda nao existe)",
+            not os.path.isfile(SONDA),
+            "A SONDA FOI CRIADA: houve execucao")
+        nome_rel = hostil.replace("\\", "/")
+        _, cmd_inj, _ = lc.receita(b)
+        diz("   e o arquivo hostil ficou FORA do comando",
+            not cmd_inj or nome_rel not in cmd_inj, str(cmd_inj)[:70])
+    else:
+        print("  (nao medido: este sistema de arquivos recusa o nome hostil)")
+
+    # E o filtro, direto: o que passa e o que nao passa.
+    aceitos, recusados = lc._seguros(
+        ["testar_ok.py", "pasta/testar_x.py", "testar_y.py && rm -rf /",
+         "testar_z.py; curl evil", "testar_w.py | sh", "a$(whoami).py"])
+    diz("o filtro aceita nome normal e recusa os 4 hostis",
+        aceitos == ["testar_ok.py", "pasta/testar_x.py"] and len(recusados) == 4,
+        "aceitos=%s" % aceitos)
+
+    # E a execucao sem shell: comando com metacaractere e RECUSADO, nao
+    # rebaixado para o shell. Rebaixar seria manter a porta com outro nome.
+    diz("comando que exige shell nao e provado (e sem prova nao ha CI)",
+        lc.argumentos("python -B x.py | tee log") == []
+        and lc.argumentos("python -B x.py && python -B y.py")
+        == [["python", "-B", "x.py"], ["python", "-B", "y.py"]])
 
     print(N + "== 5. MUTACAO (desarmar a recusa tem de virar dano) ==")
     b = repo(raiz, "mutacao",

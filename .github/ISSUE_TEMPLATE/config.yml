@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Duvida sobre como usar
+    url: https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar#como-rodar
+    about: O README cobre instalacao e os tres arquivos de dado.
+  - name: Vulnerabilidade de seguranca
+    url: https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/blob/main/SECURITY.md
+    about: Leia o SECURITY.md antes de abrir em publico.

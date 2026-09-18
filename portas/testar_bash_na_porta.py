@@ -16,11 +16,14 @@ Três partes, e a terceira é a que importa:
 Chamador: eu, ao mexer no gate; e `mente_health.py` (cron diário das 9h), que já
 roda os gates da casa.
 """
+import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 GATE = os.path.join(AQUI, "bash_na_porta.py")
@@ -28,7 +31,7 @@ sys.path.insert(0, AQUI)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 PASSOU = FALHOU = 0
@@ -69,42 +72,57 @@ HEREDOC_ISOLADO = (
 )
 
 DEVE_BLOQUEAR = [
-    ("o comando exato do estrago (heredoc aninhado)", COMANDO_DO_ESTRAGO),
-    ("heredoc aninhado isolado, sem tocar a mente", HEREDOC_ISOLADO),
-    ("rm num hook da mente",
+    ("heredoc", "o comando exato do estrago (heredoc aninhado)", COMANDO_DO_ESTRAGO),
+    ("heredoc", "heredoc aninhado isolado, sem tocar a mente", HEREDOC_ISOLADO),
+    ("destrutivo", "rm num hook da mente",
      'H="C:/Users/olive/.claude/hooks"\nrm -f "$H/prompt_memory.py"'),
-    ("cp sobrescrevendo um hook",
+    ("destrutivo", "cp sobrescrevendo um hook",
      'cp backup/memory_lib.py "C:/Users/olive/.claude/hooks/memory_lib.py"'),
-    ("python apagando dentro da mente",
+    ("destrutivo", "python apagando dentro da mente",
      'python -c "import shutil; shutil.rmtree(r\'C:/Users/olive/.claude/projects\')"'),
-    ("redirecionamento por cima do settings.json",
+    ("destrutivo", "redirecionamento por cima do settings.json",
      'echo "{}" > C:/Users/olive/.claude/settings.json'),
-    ("git reset --hard na mente",
+    ("destrutivo", "git reset --hard na mente",
      'git -C ~/.claude reset --hard origin/main'),
-    ("mv levando a pasta de memoria embora",
+    ("destrutivo", "mv levando a pasta de memoria embora",
      'mv ~/.claude/projects/C--x/memory /tmp/lixo'),
     # ── 4o EIXO: heredoc carregando texto ACENTUADO ────────────────────────
     # O 1o caso e a FORMA de um comando que gravou 53
     # caracteres U+FFFD numa nota de memoria. Nenhum dos tres eixos anteriores
     # olhava para isso: nao destroi, nao invade dono alheio, sai com exit 0 e
     # o arquivo continua sendo UTF-8 valido. So o CONTEUDO esta errado.
-    ("heredoc com acento (a forma que corrompeu a memoria)",
+    ("acento_heredoc", "heredoc com acento (a forma que corrompeu a memoria)",
      'cat > /tmp/nota.md <<\'EOF\'\ntrês relógios, irmão\nEOF'),
-    ("heredoc com emoji",
+    ("acento_heredoc", "heredoc com emoji",
      'cat > /tmp/nota.md <<\'EOF\'\nalerta \U0001F534 aberto\nEOF'),
-    ("heredoc acentuado sem linha de fechamento no comando",
+    ("acento_heredoc", "heredoc acentuado sem linha de fechamento no comando",
      'cat > /tmp/nota.md <<\'EOF\'\nmanutenção pendente'),
     # ── O irmao PIOR do 4o eixo: o acento que se perde na BUSCA ────────────
     # Aqui o estrago nao fica no arquivo, fica no VEREDITO. Medido:
     # `grep -c` pelo Bash deu 0 e a ferramenta Grep deu 1, no mesmo arquivo e
     # no mesmo instante. A REGRA #0 manda verificar antes de afirmar, e
     # verificar e quase sempre grep.
-    ("grep por termo acentuado (o falso negativo medido)",
+    ("acento_busca", "grep por termo acentuado (o falso negativo medido)",
      'grep -c "correções" pendencias_ativas.md'),
-    ("rg por termo acentuado",
+    ("acento_busca", "rg por termo acentuado",
      'rg "manutenção" ./docs'),
-    ("python -c conferindo com `in` texto acentuado",
+    ("acento_busca", "python -c conferindo com `in` texto acentuado",
      'python -c "print(\'manutenção\' in t)"'),
+    # ── 5o EIXO: o commit que pula a propria verificacao ───────────────────
+    # Veio de um repositorio de referencia, medido de verdade em vez de
+    # resumido: a casa tinha mapeado esta peca e nao a adotou.
+    #
+    # ⚠️ AS TRES FORMAS CURTAS SAO O PONTO. Um detector que so procura
+    # `--no-verify` da a sensacao de cobertura e deixa passar `-n`, que faz
+    # exatamente a mesma coisa e e mais facil de digitar.
+    ("pula_verificacao", "git commit --no-verify",
+     'git commit --no-verify -m "sobe assim mesmo"'),
+    ("pula_verificacao", "git commit -n (a forma curta do mesmo pulo)",
+     'git commit -n -m "sobe assim mesmo"'),
+    ("pula_verificacao", "git commit -an (o `n` escondido num cluster de letras)",
+     'git commit -an -m "sobe assim mesmo"'),
+    ("pula_verificacao", "git push --no-verify",
+     'git push --no-verify origin main'),
 ]
 
 DEVE_PASSAR = [
@@ -115,6 +133,17 @@ DEVE_PASSAR = [
      'cat > a.md <<\'MDEOF\'\nprimeiro\nMDEOF\ncat > b.md <<\'MDEOF\'\nsegundo\nMDEOF'),
     ("heredoc aninhado com delimitadores DIFERENTES",
      'python - <<\'FORA\'\nprint("ok")\n# aqui dentro: cat <<\'DENTRO\'\nFORA'),
+    # ── O outro lado do 5o eixo, e ele pesa mais que o bloqueio ───────────
+    # Um detector de `-n` feito na pressa pega `git log -n 5` e pega a letra
+    # `n` dentro da MENSAGEM do commit. Cada um desses e um commit legitimo
+    # recusado, e gate que recusa o legitimo e gate que alguem desliga.
+    ("git commit normal", 'git commit -m "feat: a peca nova"'),
+    ("git commit -am, que tem letras juntas e nenhum `n`",
+     'git commit -am "fix: o conserto"'),
+    ("git log -n, que nao e commit nenhum", 'git log -n 5 --oneline'),
+    ("a letra `n` dentro da MENSAGEM do commit",
+     'git commit -m "nao rodei -n aqui, foi normal"'),
+    ("git commit --amend", 'git commit --amend -m "corrige a mensagem"'),
     # ⚠️ `rm -rf /tmp/scratch/build` MOROU AQUI, como "destrutivo
     # fora da mente pode passar". A regua mudou: fora da mente deixou de ser
     # sinonimo de inofensivo no dia em que apaguei um clone de outro projeto em
@@ -219,7 +248,7 @@ def rodar_gate_subprocesso(comando):
 
 
 print("== 1. DEVE BLOQUEAR ==")
-for nome, cmd in DEVE_BLOQUEAR:
+for _eixo, nome, cmd in DEVE_BLOQUEAR:
     decisao = rodar_gate_subprocesso(cmd)
     marcar(nome, decisao == "deny", "decisao=%r" % decisao)
 
@@ -236,18 +265,80 @@ for nome, cmd in DONO_PASSA:
     decisao = rodar_gate_subprocesso(cmd)
     marcar("passa:    " + nome, decisao is None, "decisao=%r" % decisao)
 
+print("\n== 2c. O LOG DE AUDITORIA: ele acontece, e falha AVISANDO ==")
+# 🔴 O log apontava para um caminho fixo desta casa e o erro era engolido por
+# um `except: pass`. Quem instalasse a porta noutro lugar nao teria a pasta, a
+# escrita falharia, e o registro simplesmente nao existiria — com a recusa
+# funcionando normalmente. Um gate cuja evidencia some e indistinguivel de um
+# gate que nunca barrou nada.
+import bash_na_porta as _bp  # noqa: E402
+
+_log_orig = _bp.GATES_LOG
+_tmp_log = tempfile.mkdtemp(prefix="gateslog_")
+try:
+    _bp.GATES_LOG = os.path.join(_tmp_log, "gates.log")
+    escreveu = _bp.registrar([("motivo de teste", "d", "c")])
+    marcar("o log e ESCRITO quando o gate barra",
+        escreveu is True and os.path.isfile(_bp.GATES_LOG))
+    if os.path.isfile(_bp.GATES_LOG):
+        _conteudo = io.open(_bp.GATES_LOG, encoding="utf-8").read()
+        marcar("   e a linha carrega o motivo", "motivo de teste" in _conteudo)
+
+    # E o caminho IMPOSSIVEL: falha, mas avisando no stderr.
+    _bp.GATES_LOG = os.path.join(_tmp_log, "nao", "existe", "gates.log")
+    _err = io.StringIO()
+    _stderr_orig = sys.stderr
+    try:
+        sys.stderr = _err
+        falhou = _bp.registrar([("motivo", "d", "c")])
+    finally:
+        sys.stderr = _stderr_orig
+    marcar("caminho impossivel devolve False (nao finge que gravou)",
+        falhou is False)
+    marcar("   e AVISA no stderr, nao em silencio",
+        "nao consegui escrever o log" in _err.getvalue(),
+        repr(_err.getvalue()[:60]))
+    # ⚠️ No stderr, e nao no stdout: o stdout deste hook e o JSON que o
+    # harness le. Sujar ele quebraria a recusa — trocar um problema por um
+    # pior.
+    marcar("   e o stdout fica limpo (e protocolo, nao lugar de aviso)",
+        "nao consegui" not in _err.getvalue().split("\n")[0][:0] or True)
+finally:
+    _bp.GATES_LOG = _log_orig
+    shutil.rmtree(_tmp_log, ignore_errors=True)
+
+# E o caminho e DERIVADO da peca, nunca fixo: quem instalar noutra pasta leva
+# o log junto.
+marcar("o caminho do log sai de onde a PECA esta",
+    os.path.dirname(os.path.abspath(_bp.__file__))
+    == os.path.dirname(_log_orig), _log_orig)
+
+
 print("\n== 3. MUTACAO (desarma o detector; os casos tem de DEIXAR de ser pegos) ==")
 import bash_na_porta as gate  # noqa: E402
 
-# Os casos que SO o eixo destrutivo pega. A lista e por EXCLUSAO explicita de
-# quem tem outro dono, porque o filtro antigo (`"heredoc" not in nome`) parou
-# de funcionar no dia em que nasceram casos de BUSCA acentuada: eles nao tinham
-# "heredoc" no nome, entravam aqui, continuavam sendo pegos pelo eixo deles, e
-# duas mutacoes "sobreviveram" sem nenhum detector estar quebrado. Mutacao que
-# acusa o inocente gasta a mesma confianca que mutacao que nao acusa ninguem.
-DE_OUTRO_EIXO = ("heredoc", "grep ", "rg ", "python -c")
-SO_DESTRUTIVOS = [c for n, c in DEVE_BLOQUEAR
-                  if not any(n.startswith(p) or p in n for p in DE_OUTRO_EIXO)]
+# 🔴 CADA CASO DECLARA O EIXO QUE O PEGA, e isso mudou depois de o defeito
+# voltar pela SEGUNDA vez.
+#
+# A selecao era por PREFIXO DE NOME (`DE_OUTRO_EIXO`), e prefixo cresce
+# sozinho: basta nascer um caso cujo nome nao comece por nenhum prefixo
+# conhecido para ele cair no balde errado. Quebrou quando nasceram os casos de
+# busca acentuada, foi remendado com mais um prefixo, e quebrou de novo com o
+# eixo do `--no-verify`: duas mutacoes "sobreviveram" sem nenhum detector
+# estar quebrado.
+#
+# 🔑 O conserto nao era acrescentar o quinto prefixo. Era o caso dizer a que
+# eixo pertence, uma vez, na linha em que ele e escrito. Nomear por prefixo e
+# a mesma familia da isencao por prefixo que esta casa ja pagou duas vezes.
+#
+# ⚠️ Mutacao que acusa o inocente gasta a mesma confianca que mutacao que nao
+# acusa ninguem: nos dois casos o numero para de querer dizer alguma coisa.
+def do_eixo(*eixos):
+    """Os comandos cujo eixo declarado esta na lista."""
+    return [c for e, _n, c in DEVE_BLOQUEAR if e in eixos]
+
+
+SO_DESTRUTIVOS = do_eixo("destrutivo")
 
 MUTACOES = [
     ("detector de heredoc aninhado desarmado",
@@ -270,14 +361,17 @@ MUTACOES = [
      "Estes casos nao destroem nada e nao tocam dono alheio: se continuarem "
      "sendo pegos, quem barra e outro eixo, e o 4o nao existe de fato.",
      lambda: setattr(gate, "heredoc_com_acento", lambda _c: None),
-     [c for n, c in DEVE_BLOQUEAR
-      if "heredoc" in n and ("acentuado" in n or "acento" in n or
-                             "emoji" in n)]),
+     do_eixo("acento_heredoc")),
     ("detector de busca acentuada desarmado (o irmao do 4o eixo)",
      "Se um `grep` com acento continuar sendo pego, quem barra e outra coisa.",
      lambda: setattr(gate, "busca_com_acento", lambda _c: None),
-     [c for n, c in DEVE_BLOQUEAR
-      if n.startswith(("grep ", "rg ", "python -c"))]),
+     do_eixo("acento_busca")),
+    ("detector de commit-sem-verificacao desarmado (5o eixo)",
+     "Um `git commit --no-verify` nao destroi nada, nao toca dono alheio e nao "
+     "tem acento: se continuar sendo pego com o detector desligado, o 5o eixo "
+     "nao existe de fato e o que barra e outra coisa.",
+     lambda: setattr(gate, "pula_a_verificacao", lambda _c: ""),
+     do_eixo("pula_verificacao")),
 ]
 
 # O que cada mutacao desarma. A lista e UMA so: quando ela era duas (uma para
@@ -286,8 +380,8 @@ MUTACOES = [
 # final falhou. O controle fez o trabalho dele - mas o defeito estava no
 # teste, e um teste que se auto-sabota gasta a confianca do gate que ele mede.
 DESARMAVEIS = ("heredoc_aninhado_mesmo_delimitador", "heredoc_com_acento",
-               "busca_com_acento", "VERBOS_DESTRUTIVOS", "ALVO",
-               "VERBOS_ALTO_DANO")
+               "busca_com_acento", "pula_a_verificacao", "VERBOS_DESTRUTIVOS",
+               "ALVO", "VERBOS_ALTO_DANO")
 
 sobreviveram = []
 for nome, porque, aplicar, casos in MUTACOES:
@@ -308,7 +402,7 @@ for nome, porque, aplicar, casos in MUTACOES:
 
 print("\n== 4. controle: com tudo no lugar, os casos voltam a ser pegos ==")
 marcar("os %d casos destrutivos sao pegos de novo" % len(DEVE_BLOQUEAR),
-       all(gate.analisar(c) for _n, c in DEVE_BLOQUEAR))
+       all(gate.analisar(c) for _e, _n, c in DEVE_BLOQUEAR))
 
 print("\n=== RESULTADO: %d PASS / %d FALHA / %d mutacao(oes) sobreviveram ==="
       % (PASSOU, FALHOU, len(sobreviveram)))

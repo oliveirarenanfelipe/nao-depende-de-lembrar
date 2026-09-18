@@ -1,0 +1,46 @@
+name: Defeito
+description: Alguma peca faz o errado, ou nao faz o que diz
+labels: ["defeito"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de tudo: **o que voce MEDIU?** Este projeto trata "parece que"
+        e "acho que" como hipotese, nao como relato.
+  - type: textarea
+    id: o-que-aconteceu
+    attributes:
+      label: O que aconteceu
+      description: O comando que voce rodou e a saida que veio, colada inteira.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: o-que-esperava
+    attributes:
+      label: O que voce esperava
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Versao do Python
+      placeholder: "python --version"
+    validations:
+      required: true
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema
+      options: [Windows, Linux, macOS, outro]
+    validations:
+      required: true
+  - type: checkboxes
+    id: dado
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: Copiei os tres `.json.exemplo` para os nomes reais
+          required: true
+        - label: Conferi que nao ha segredo meu na saida que colei
+          required: true

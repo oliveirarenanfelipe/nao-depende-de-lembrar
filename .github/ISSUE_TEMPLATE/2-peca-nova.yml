@@ -1,0 +1,33 @@
+name: Peca nova
+description: Propor uma peca que mede, conserta ou barra algo
+labels: ["peca-nova"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A regua deste projeto: **aviso que nao reprova e decoracao**. Peca que
+        so avisa sera recusada com essa frase.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Que problema MEDIDO ela resolve
+      description: Com numero. Quantas vezes aconteceu, e quanto custou.
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Ela mede, conserta ou BARRA?
+      options:
+        - mede (devolve um numero conferivel)
+        - conserta (escreve o arquivo que falta)
+        - barra (recusa antes de acontecer)
+    validations:
+      required: true
+  - type: textarea
+    id: mutacao
+    attributes:
+      label: Como voce quebraria essa peca para provar que ela funciona
+      description: Se nao houver resposta aqui, a peca nao tem como ser provada.
+    validations:
+      required: true

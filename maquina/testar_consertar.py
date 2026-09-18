@@ -36,13 +36,13 @@ import tempfile
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import consertar as ct                                      # noqa: E402
-import o_basico as ob                                       # noqa: E402
+import consertar as ct  # noqa: E402
+import o_basico as ob  # noqa: E402
 
 PASS = 0
 FALHA = 0
@@ -137,7 +137,7 @@ marcar("escreve projeto.yml com os 10 campos", ok is True, det)
 # `ModuleNotFoundError` e derrubava a suite inteira.
 sys.path.insert(0, os.path.join(os.path.expanduser("~"), ".claude", "hooks"))
 try:
-    import fundacao_na_porta as porta                       # noqa: E402
+    import fundacao_na_porta as porta  # noqa: E402
 except ImportError:
     porta = None
 

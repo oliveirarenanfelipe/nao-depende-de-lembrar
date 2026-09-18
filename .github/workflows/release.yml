@@ -1,0 +1,101 @@
+name: release
+
+# A tag vira uma Release do GitHub, com o trecho do CHANGELOG daquela versão
+# como corpo. Nada de publicar pacote: a instalação aqui é `git clone`, e o
+# motivo está na decisão 5 do DECISOES.md.
+#
+# 🔴 A ORDEM IMPORTA, e ela é o ponto desta peça: a release só nasce DEPOIS
+# das suítes passarem na mesma revisão. Uma tag que vira release sem teste é
+# um carimbo de qualidade dado por ter escrito `git tag`.
+#
+# Nenhuma ação de terceiro. O `gh` já vem no runner, e isso mantém a decisão 4
+# (zero dependência) valendo também para o pipeline.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'a tag a publicar (ex.: v0.1.0)'
+        required: true
+
+permissions:
+  contents: write     # criar a release exige escrever; nada mais.
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # release a meio caminho nao se cancela.
+
+jobs:
+  provar:
+    name: as suites, antes de qualquer release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v5
+        with:
+          python-version: '3.12'
+
+      - name: preparar
+        run: |
+          cp maquina/privacidade.json.exemplo maquina/privacidade.json
+          cp maquina/mapa.json.exemplo maquina/mapa.json
+          cp portas/casa.json.exemplo portas/casa.json
+          cp portas/seeds_inseguros.json.exemplo portas/seeds_inseguros.json
+
+      - name: rodar tudo
+        run: |
+          set -e
+          for t in maquina/testar_*.py portas/testar_*.py; do
+            python -B "$t" > /dev/null
+          done
+
+  publicar:
+    name: a release
+    needs: provar
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      # O corpo da release sai do CHANGELOG, e nao de um texto escrito na
+      # hora. Texto escrito na hora diverge do changelog no segundo release, e
+      # ai existem duas versoes da mesma historia.
+      - name: recortar o CHANGELOG
+        id: corpo
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          python - <<'FIM' > corpo.md
+          import io, os, re, sys
+          tag = os.environ["TAG"]
+          versao = tag[1:] if tag.startswith("v") else tag
+          texto = io.open("CHANGELOG.md", encoding="utf-8").read()
+          # Do cabecalho desta versao ate o proximo cabecalho de versao.
+          rx = re.compile(r"^#{1,3}\s*\[?%s\]?.*?$(.*?)(?=^#{1,3}\s*\[|\Z)"
+                          % re.escape(versao), re.M | re.S)
+          m = rx.search(texto)
+          if not m:
+              sys.stderr.write(
+                  "CHANGELOG.md nao tem secao para a versao %s.\n" % versao)
+              sys.stderr.write(
+                  "Release sem changelog e uma tag com nome bonito. "
+                  "Escreva a secao antes de marcar a tag.\n")
+              raise SystemExit(1)
+          corpo = m.group(1).strip()
+          if not corpo:
+              sys.stderr.write("A secao %s existe e esta vazia.\n" % versao)
+              raise SystemExit(1)
+          sys.stdout.write(corpo + "\n")
+          FIM
+
+      - name: criar a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: gh release create "$TAG" --title "$TAG" --notes-file corpo.md

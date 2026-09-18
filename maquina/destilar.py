@@ -46,13 +46,13 @@ import sys
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import inventario as inv                                    # noqa: E402
-import medir_privacidade as mp                              # noqa: E402
+import inventario as inv  # noqa: E402
+import medir_privacidade as mp  # noqa: E402
 
 SAIDA = os.path.join(AQUI, "publicado")
 
@@ -83,6 +83,16 @@ def carregar_mecanicas(fonte=None):
 MECANICAS = carregar_mecanicas()
 
 
+def erro(msg):
+    """Diagnostico vai para stderr; stdout fica so com resultado.
+
+    Quem chama esta peca num `|` ou num `>` precisa poder separar as duas
+    coisas. Misturadas, quem consome tem de adivinhar qual linha e resultado e
+    qual e reclamacao.
+    """
+    sys.stderr.write(msg + chr(10))
+
+
 def destilar_texto(t):
     """So as trocas mecanicas. Devolve (texto, quantas trocas)."""
     n = 0
@@ -95,11 +105,14 @@ def destilar_texto(t):
 def sujeira(t):
     """Linhas que AINDA carregam contexto privado: [(n, marca, linha)]."""
     achados = []
-    for i, l in enumerate(t.split(chr(10)), 1):
-        for nome, rx in mp.MARCAS:
-            if rx.search(l):
-                achados.append((i, nome, l.strip()[:88]))
-                break
+    for i, l_ in enumerate(t.split(chr(10)), 1):
+        # ⚠️ A REGUA NAO MORA MAIS AQUI. Esta funcao ja limpou o que
+        # ja e publico por conta propria, e o `medir_privacidade` nao limpava
+        # — duas reguas do que e privado, respondendo numeros diferentes sobre
+        # os mesmos arquivos. Agora as duas perguntam ao MESMO lugar.
+        quais = mp.marcas_da_linha(l_)
+        if quais:
+            achados.append((i, quais[0], l_.strip()[:88]))
     return achados
 
 
@@ -131,8 +144,8 @@ def caminho_do_alvo(nome):
 def uma(nome, escrever=False):
     alvo = caminho_do_alvo(nome)
     if not alvo or not os.path.isfile(alvo):
-        print("  %s: nao e peca nem teste da maquina (veja o inventario)"
-              % nome)
+        erro("  %s: nao e peca nem teste da maquina (veja o inventario)"
+             % nome)
         return False
 
     t = io.open(alvo, encoding="utf-8", errors="replace").read()
@@ -203,17 +216,17 @@ def rascunho(nome):
     t = io.open(alvo, encoding="utf-8", errors="replace").read()
     limpo, _trocas = destilar_texto(t)
     marcadas, n_marcas = [], 0
-    for l in limpo.split(chr(10)):
+    for l_ in limpo.split(chr(10)):
         achou = ""
         for marca, rx in mp.MARCAS:
-            if rx.search(l):
+            if rx.search(l_):
                 achou = marca
                 break
         if achou:
             n_marcas += 1
             marcadas.append("%s%s] — reescreva: o numero sobrevive, "
                             "o dono sai" % (MARCA, achou))
-        marcadas.append(l)
+        marcadas.append(l_)
     os.makedirs(RASCUNHO, exist_ok=True)
     destino = os.path.join(RASCUNHO, os.path.basename(alvo))
     io.open(destino, "w", encoding="utf-8",
@@ -264,7 +277,7 @@ def reescrever(fonte=None):
     tiver marca de privacidade, que e o pior dos mundos.
     """
     if not os.path.isdir(RASCUNHO):
-        print("  _rascunho/ nao existe. Rode `--rascunho <peca>` primeiro.")
+        erro("  _rascunho/ nao existe. Rode `--rascunho <peca>` primeiro.")
         return 1
     mapa = carregar_reescritas(fonte)
     print("REESCRITA DE %d ARQUIVO(S), a partir do dado" % len(mapa))
@@ -277,8 +290,8 @@ def reescrever(fonte=None):
             ruins += 1
             continue
         t = chr(10).join(
-            l for l in io.open(rasc, encoding="utf-8").read().split(chr(10))
-            if not l.strip().startswith(MARCA))
+            l_ for l_ in io.open(rasc, encoding="utf-8").read().split(chr(10))
+            if not l_.strip().startswith(MARCA))
         perdidos, n = [], 0
         for de, para in mapa[nome]:
             if de in t:
@@ -334,9 +347,9 @@ def defasagem(nome_arquivo):
     publicado = io.open(os.path.join(SAIDA, nome_arquivo),
                         encoding="utf-8", errors="replace").read()
     fora = []
-    for i, l in enumerate(so_codigo(interno), 1):
-        if l not in publicado:
-            fora.append((i, l.strip()[:70]))
+    for i, l_ in enumerate(so_codigo(interno), 1):
+        if l_ not in publicado:
+            fora.append((i, l_.strip()[:70]))
     return fora
 
 
@@ -350,17 +363,17 @@ def so_codigo(texto):
     a peca ser desligada.
     """
     linhas, dentro = [], False
-    for l in texto.split(chr(10)):
-        n_aspas = l.count('"""') + l.count("'''")
+    for l_ in texto.split(chr(10)):
+        n_aspas = l_.count('"""') + l_.count("'''")
         se_abria = dentro
         if n_aspas % 2:
             dentro = not dentro
         if se_abria or n_aspas:
             continue                      # linha de docstring, ou que a delimita
-        nu = l.strip()
+        nu = l_.strip()
         if not nu or nu.startswith("#") or len(nu) < 8:
             continue
-        linhas.append(l)
+        linhas.append(l_)
     return linhas
 
 
@@ -393,6 +406,9 @@ ISENTOS = {
     # invalidar a licenca — e o nome ja e publico por definicao, porque uma
     # licenca sem titular nao licencia nada.
     "LICENSE": "a licenca exige o titular; sem o nome ela nao vale",
+    # O formato Keep a Changelog EXIGE a data de cada versao. Changelog sem
+    # data nao e changelog: a pergunta que ele responde e "quando isto mudou".
+    "CHANGELOG.md": "a data da versao e o formato, nao um incidente",
 }
 
 
@@ -404,7 +420,7 @@ def conferir():
     nao existirem duas reguas do que e privado.
     """
     if not os.path.isdir(SAIDA):
-        print("  publicado/ nao existe. Rode `--rascunho <peca>` primeiro.")
+        erro("  publicado/ nao existe. Rode `--rascunho <peca>` primeiro.")
         return 1
     alvos = [f for f in sorted(os.listdir(SAIDA))
              if os.path.isfile(os.path.join(SAIDA, f))
@@ -428,8 +444,8 @@ def conferir():
         # ISENTOS do gate de seguranca resolvem la. Aqui nao precisa de lista
         # de excecao: precisa perguntar a coisa certa, que e se a linha E a
         # marca, e nao se ela CITA a marca.
-        sobradas = [i for i, l in enumerate(t.split(chr(10)), 1)
-                    if l.strip().startswith(MARCA)]
+        sobradas = [i for i, l_ in enumerate(t.split(chr(10)), 1)
+                    if l_.strip().startswith(MARCA)]
         for i in sobradas:
             resta.append((i, "marca de rascunho",
                           "sobrou a marca de reescrita — nao terminou"))

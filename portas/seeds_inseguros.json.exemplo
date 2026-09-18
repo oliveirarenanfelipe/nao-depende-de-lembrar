@@ -1,0 +1,69 @@
+{
+  "_leia": [
+    "OS PADROES DE DEFAULT INSEGURO que o `seguranca_na_porta` procura em",
+    "codigo novo, antes de deixar gravar.",
+    "",
+    "COPIE PARA `seeds_inseguros.json`, ao lado do `seguranca_seeds.py`. Sem",
+    "ele a peca LEVANTA e o gate NEGA toda gravacao, dizendo por que. Isso e",
+    "deliberado: um detector sem padroes responde 'nada encontrado' para todo",
+    "codigo, e 'nada encontrado' le exatamente igual a 'codigo limpo'. Foi",
+    "assim que este arquivo nasceu com o defeito e foi consertado: o",
+    "`carregar()` devolvia lista vazia em silencio, e tres familias que barram",
+    "passaram a aprovar sem que nada avisasse.",
+    "",
+    "🔴 O QUE ESTE EXEMPLO NAO TEM, E POR QUE:",
+    "",
+    "A casa de origem roda com 9 familias. Aqui vao 3 — as que nasceram de",
+    "defeitos medidos nela. As outras 6 vem do projeto `trailofbits/",
+    "insecure-defaults`, que e CC-BY-SA-4.0: uma licenca copyleft, que exige",
+    "que a obra derivada saia sob a MESMA licenca. Este repositorio e MIT, e",
+    "as duas nao se misturam.",
+    "",
+    "Se voce quer as 6, pegue na fonte e respeite a licenca dela:",
+    "  github.com/trailofbits/insecure-defaults",
+    "",
+    "Com so estas 3 o detector e mais FRACO, e o arquivo diz isso na cara em",
+    "vez de parecer completo. Detector que parece completo e nao e vale menos",
+    "que detector nenhum, porque gera confianca.",
+    "",
+    "FORMATO: cada familia tem `titulo` e `seeds` (lista de regex). A sintaxe",
+    "aceita classes POSIX (`[[:space:]]`, `[[:alpha:]]`) — o carregador as",
+    "converte. Seed que nao compila e pulado sem derrubar o gate.",
+    "",
+    "⚠️ CALIBRE antes de confiar. Cada uma destas 3 foi ajustada contra falso",
+    "positivo real, e o ajuste esta anotado no `titulo`. Detector barulhento e",
+    "desligado na segunda semana."
+  ],
+  "casa-aprendeu": {
+    "titulo": "Padroes que ESTA CASA pagou para aprender (nao vem do trailofbits)",
+    "seeds": [
+      "verify_mode\\s*=\\s*ssl\\.CERT_NONE",
+      "check_hostname\\s*=\\s*False",
+      "verify\\s*=\\s*False",
+      "[?&](?:token|senha|password|secret|api_?key)=[^\"\\x27\\s&)}]{6,}",
+      "(?:senha|password|token|api_?key)\\s*[:=]\\s*[\\x27\"][A-Za-z0-9_\\-\\.]{12,}[\\x27\"]"
+    ]
+  },
+  "casa-portugues": {
+    "titulo": "Segredo/credencial com nome em PORTUGUES - os seeds de fora sao anglofonos e o codigo daqui nao e (calibrado: `chave` solto gerava ruido, porque a casa usa `chave` para nomear chave de KV)",
+    "seeds": [
+      "(?i)\\b(senha|senhas|segredo|credencial|palavra_?passe|chave_?(api|secreta|privada|acesso)|api_?chave|token_?acesso)[A-Za-z_0-9]*\\s*[:=]\\s*['\\\"](?=[^'\\\"]*[a-z])(?=[^'\\\"]*[A-Z0-9])[^'\\\"/\\\\~][^'\\\"]{5,}['\\\"]",
+      "(?i)(getenv|environ\\.get)\\s*\\(\\s*['\\\"][^'\\\"]*(senha|chave|segredo|token|credencial)[^'\\\"]*['\\\"]\\s*,\\s*['\\\"][^'\\\"]{6,}['\\\"]",
+      "(?i)\\b(depurar|depuracao|modo_?teste|modo_?debug|teste_?ativo)\\s*[:=]\\s*(True|true|1)\\b",
+      "(?i)\\b(verificar|validar|conferir|checar)_?(ssl|tls|cert|certificado|assinatura|token|senha|auth|origem|host)[A-Za-z_0-9]*\\s*[:=]\\s*(False|false|0)\\b",
+      "(?i)\\b(usuario|user|login)[A-Za-z_0-9]*\\s*[:=]\\s*['\\\"](admin|administrador|root|padrao|123456|teste123)['\\\"]"
+    ]
+  },
+  "execucao-perigosa": {
+    "titulo": "Entrada virando codigo ou comando - eval/exec/pickle/yaml/shell/SQL (calibrado: a palavra `eval` em texto PT, `_telegram_raw(f'')` e `assert ...['dono']` de teste geravam falso positivo)",
+    "seeds": [
+      "(?<![\\'\\\"\\w.])(eval|exec)\\(",
+      "(?<![A-Za-z_.])(pickle|cPickle|dill|marshal|shelve)\\.(loads?|Unpickler)\\s*\\(",
+      "yaml\\.load\\s*\\((?![^)]*(SafeLoader|CSafeLoader|safe_load))",
+      "(subprocess\\.(run|call|Popen|check_output|check_call)|os\\.(system|popen))[^)]{0,120}shell\\s*=\\s*True",
+      "(?<![A-Za-z_.])os\\.(system|popen)\\s*\\(",
+      "(?i)(?<![\\w_])(cursor\\.execute|executemany|\\.execute)\\s*\\(\\s*(f[\\'\\\"]|[\\'\\\"][^\\'\\\"]*(SELECT|INSERT|UPDATE|DELETE)[^\\'\\\"]*[\\'\\\"]\\s*[+%]|[\\'\\\"][^\\'\\\"]*(SELECT|INSERT|UPDATE|DELETE)[^\\'\\\"]*[\\'\\\"]\\.format)",
+      "assert\\s+[^,\\n]{0,80}(is_admin|isAdmin|autoriz|permiss|\\brole\\b|\\bpapel\\b|\\btoken\\b|\\bauth\\b)"
+    ]
+  }
+}

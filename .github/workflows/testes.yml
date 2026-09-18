@@ -1,14 +1,14 @@
 name: testes
 
-# O CI roda as 8 suites, e cada uma so passa com 0 falha E 0 mutacao
-# sobrevivente. Nao ha `continue-on-error` aqui de proposito: um passo que
-# falha e nao reprova o job e a definicao de aviso decorativo, que e a coisa
-# que esta maquina inteira existe para impedir.
+# O CI roda as suites da maquina e das portas. Cada uma so passa com 0 falha E
+# 0 mutacao sobrevivente. Nao ha `continue-on-error` aqui de proposito: um
+# passo que falha e nao reprova o job e a definicao de aviso decorativo, que e
+# a coisa que esta maquina inteira existe para impedir.
 #
-# Ele copia os dois `.exemplo` para os nomes reais antes de rodar, porque o
-# dado fica de fora do repositorio. E o CI provando, de quebra, que os
-# exemplos publicados sao suficientes para a maquina funcionar: exemplo que
-# nao roda e documentacao errada com cara de certa.
+# Ele copia os `.exemplo` para os nomes reais antes de rodar, porque o dado
+# fica de fora do repositorio. E o CI provando, de quebra, que os exemplos
+# publicados bastam: exemplo que nao roda e documentacao errada com cara de
+# certa. Ja aconteceu uma vez, e foi o CI que pegou.
 
 on:
   push:
@@ -18,29 +18,53 @@ on:
 
 # O minimo, declarado. A conta ja tem `read` como padrao, mas padrao de conta e
 # uma configuracao que muda noutro lugar, sem passar por aqui e sem avisar
-# ninguem. Escrito no arquivo, o minimo viaja junto com o repositorio: quem
-# clonar leva a mesma trava, e nao a configuracao de quem publicou.
+# ninguem. Escrito no arquivo, o minimo viaja junto com o repositorio.
 #
-# Este workflow nao usa nenhum `secrets.` e nao escreve nada — so roda os
-# testes. Nao ha nada a conceder.
+# Este workflow nao usa nenhum `secrets.` e nao escreve nada.
 permissions:
   contents: read
 
+# Push em sequencia cancela a rodada anterior do mesmo ramo. Sem isto, tres
+# commits seguidos pagam tres rodadas inteiras e so a ultima importa.
+concurrency:
+  group: testes-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   testes:
+    name: suites (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    # Teto de tempo: a suite inteira leva segundos. Dez minutos e folga larga,
+    # e serve para um teste travado morrer em vez de queimar a cota de 6 horas
+    # que o GitHub daria por padrao.
+    timeout-minutes: 10
+    strategy:
+      # Uma versao falhar nao cancela as outras: interessa saber se o defeito
+      # e de UMA versao ou de todas.
+      fail-fast: false
+      matrix:
+        # 3.9 e o piso real: o codigo nao usa sintaxe acima dele. O unico
+        # limite seria `tomllib` (3.11+), e ele ja entra com `ImportError`
+        # tratado — medido, nao suposto.
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
 
-      - uses: actions/setup-python@v5
+    steps:
+      # Actions fixadas por SHA, nao por tag. Tag e mutavel: quem controla o
+      # repositorio da action pode movê-la para outro commit, e o seu CI passa
+      # a rodar codigo que voce nunca viu. O comentario ao lado diz qual versao
+      # aquele SHA e, para a leitura continuar humana.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python }}
 
       - name: o dado de exemplo vira o dado de verdade
         run: |
           cp maquina/privacidade.json.exemplo maquina/privacidade.json
           cp maquina/mapa.json.exemplo maquina/mapa.json
           cp portas/casa.json.exemplo portas/casa.json
+          cp portas/seeds_inseguros.json.exemplo portas/seeds_inseguros.json
 
       - name: as suites da maquina, com mutacao
         run: |
@@ -60,3 +84,88 @@ jobs:
 
       - name: o mapa da maquina responde
         run: python -B maquina/inventario.py --rapido
+
+  cobertura:
+    name: cobertura
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v5
+        with:
+          python-version: '3.12'
+
+      - name: preparar
+        run: |
+          pip install --quiet coverage
+          cp maquina/privacidade.json.exemplo maquina/privacidade.json
+          cp maquina/mapa.json.exemplo maquina/mapa.json
+          cp portas/casa.json.exemplo portas/casa.json
+          cp portas/seeds_inseguros.json.exemplo portas/seeds_inseguros.json
+
+      - name: medir
+        run: |
+          set -e
+          for t in maquina/testar_*.py portas/testar_*.py; do
+            python -m coverage run -a --source=maquina,portas "$t" > /dev/null
+          done
+          python -m coverage report --skip-empty
+
+      # 🔴 O PISO E 70, e o numero tem historia: medido em 76% no dia em que
+      # esta etapa nasceu. O piso fica ABAIXO do medido de proposito, para ele
+      # reprovar quando a cobertura CAI, e nao para premiar o estado atual.
+      #
+      # ⚠️ Cobertura mede o que foi EXECUTADO, nunca o que foi verificado. Ela
+      # nao substitui a mutacao: uma suite de `assert True` chega a 100%. O
+      # numero esta aqui como detector de queda, e e so isso.
+      - name: o piso
+        run: python -m coverage report --fail-under=70 --skip-empty > /dev/null
+
+  # 🔴 O GATE DO `push`, e ele responde outra pergunta que o job acima.
+  #
+  # As suítes provam que o código funciona. Este job pergunta o que o
+  # repositório está prestes a PUBLICAR — e são perguntas diferentes, com
+  # respostas que já divergiram aqui.
+  #
+  # O `--conferir` do destilador olha a pasta que alguém montou. Este olha a
+  # lista do git: o que está versionado, o que espera um `git add .`, e o que
+  # as mensagens de commit guardam. As duas últimas nenhum gate de repositório
+  # costuma olhar, e foi exatamente onde o furo apareceu — quatro arquivos
+  # gerados pelos próprios testes, dois com o caminho absoluto do disco de
+  # quem rodou escrito dentro, soltos fora do `.gitignore`.
+  #
+  # Ele roda em toda PR: é quando ainda dá para consertar. Depois do `push`
+  # não desfaz.
+  o-que-sobe:
+    name: o que vai subir
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # ⚠️ `fetch-depth: 0` porque a superfície 3 são as MENSAGENS DE COMMIT, e
+      # o checkout raso do GitHub traz uma só. Medir uma mensagem e dizer que
+      # o histórico está limpo é o verde que não verificou nada.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v5
+        with:
+          python-version: '3.12'
+
+      - name: preparar
+        run: cp maquina/privacidade.json.exemplo maquina/privacidade.json
+
+      - name: medir as tres superficies
+        run: python -B maquina/antes_de_publicar.py .
+
+      # 🔴 A outra metade da pergunta, e ela responde por algo diferente. O
+      # passo acima mede o CONTEUDO do que sobe; este mede o ARRANJO — se o
+      # painel de fatos do README ainda bate com o que as suites respondem
+      # agora. Um painel de fatos que ninguem re-roda vira um painel que
+      # mente, e o nosso ja mentia: dizia 9 suites com o repositorio em 15.
+      #
+      # ⚠️ Ele roda as suites de novo, de proposito. Contar lendo o codigo
+      # contaria o que foi ESCRITO, nunca o que passa.
+      - name: o painel de fatos ainda e verdade
+        run: python -B maquina/montar_repo.py --conferir .

@@ -5,6 +5,12 @@ to remember.
 
 *[Português](README.md)*
 
+[![testes](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/testes.yml/badge.svg)](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/testes.yml)
+[![codeql](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/codeql.yml/badge.svg)](https://github.com/oliveirarenanfelipe/nao-depende-de-lembrar/actions/workflows/codeql.yml)
+![python](https://img.shields.io/badge/python-3.9%2B-blue)
+![licenca](https://img.shields.io/badge/licen%C3%A7a-MIT-green)
+![dependencias](https://img.shields.io/badge/depend%C3%AAncias-nenhuma-lightgrey)
+
 > Heads up: the code, the comments and the terminal output are in Portuguese.
 > This page explains what each piece does, so you can decide whether it is
 > worth your time before you open the source.

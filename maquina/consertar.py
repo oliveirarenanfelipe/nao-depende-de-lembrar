@@ -76,13 +76,13 @@ import sys
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import ligar_ci                                             # noqa: E402
-import o_basico as ob                                       # noqa: E402
+import ligar_ci  # noqa: E402
+import o_basico as ob  # noqa: E402
 
 HOOKS = os.path.join(os.path.expanduser("~"), ".claude", "hooks")
 

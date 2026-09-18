@@ -27,13 +27,13 @@ import tempfile
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
 
-import regua_de_trava as rt                                 # noqa: E402
+import regua_de_trava as rt  # noqa: E402
 
 ALVO = os.path.join(AQUI, "regua_de_trava.py")
 

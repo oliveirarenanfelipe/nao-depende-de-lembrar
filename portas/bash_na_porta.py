@@ -57,11 +57,25 @@ import sys
 # outro gate desta casa ficou inerte desde que nasceu, por semanas.
 try:
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 MARCADOR_OK = "# GATE-OK:"
-GATES_LOG = os.path.join(os.path.expanduser("~"), ".claude", "hooks", "gates.log")
+
+# 🔴 O LOG MORAVA NUM CAMINHO FIXO, e falhava calado. Ele apontava para
+# `~/.claude/hooks/gates.log` — a pasta desta casa. Quem instalasse a porta
+# noutro lugar nao teria essa pasta, a escrita falharia, e o `except: pass`
+# logo abaixo engolia. Resultado: o log de auditoria do gate simplesmente NAO
+# ACONTECIA, e o unico jeito de descobrir era ir procurar o arquivo.
+#
+# 🔑 Num gate, o log nao e conveniencia: e a evidencia de que ele barrou
+# alguma coisa. Sem ele, "o gate esta funcionando" vira fe, e a casa inteira
+# existe para nao depender de fe.
+#
+# Agora o caminho sai de onde a PECA esta, que e o unico lugar que ela sabe
+# existir em qualquer maquina.
+GATES_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "gates.log")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -507,6 +521,40 @@ def busca_com_acento(cmd):
     return None
 
 
+def pula_a_verificacao(cmd):
+    """O comando pula o hook de commit? '' quando nao.
+
+    🔴 VEIO DE UM REPOSITORIO DE REFERENCIA, medido em vez de resumido — a
+    peca que a casa tinha mapeado e nao adotou. Ele barra `git --no-verify`,
+    e o motivo cabe numa frase: *pular o hook de verificacao e pular a
+    verificacao*.
+
+    ⚠️ E A FORMA CURTA E A QUE PEGA DESPREVENIDO. `git commit -n` faz o mesmo
+    que `--no-verify`, e `-an` tambem, porque as letras se juntam num cluster.
+    Um detector que so procura `--no-verify` cria a ilusao de cobertura e
+    deixa a porta aberta do lado que ninguem le.
+
+    🔑 A FRONTEIRA, e ela vale a pena dizer: no repositorio PUBLICO o
+    `--no-verify` continua sendo a valvula documentada, porque la o dono do
+    commit e outra pessoa e tirar a saida dela seria prepotencia. Aqui dentro
+    quem daria o comando sou EU, e um agente que pula a propria verificacao
+    nao tem para quem apelar.
+    """
+    if re.search(r"--no-verify\b", cmd):
+        return "--no-verify"
+    m = re.search(r"\bgit\s+commit\b([^\n;|&]*)", cmd)
+    if not m:
+        return ""
+    # ⚠️ SO AS FLAGS, NUNCA A MENSAGEM. `git commit -m "nao rodei -n aqui"`
+    # tem um `-n` dentro do texto, e um detector que olha a linha inteira
+    # recusa um commit legitimo. Gate que recusa o legitimo e gate que alguem
+    # desliga — entao a busca para na primeira aspa.
+    flags = re.split(r"[\"']", m.group(1))[0]
+    if re.search(r"(?:^|\s)-[a-zA-Z]*n[a-zA-Z]*\b", flags):
+        return "git commit -n"
+    return ""
+
+
 def verbos_encontrados(cmd):
     achados = []
     for padrao, nome in VERBOS_DESTRUTIVOS:
@@ -552,6 +600,19 @@ def analisar(cmd, cwd=""):
             "chega em UTF-8 exato; o shell carrega só CAMINHOS. Se for mesmo "
             "necessário aqui, repita com `%s <motivo>` e depois confira em "
             "bytes: `texto.count(chr(0xFFFD))` tem de dar 0." % MARCADOR_OK))
+
+    pulo = pula_a_verificacao(cmd)
+    if pulo:
+        motivos.append((
+            "COMMIT PULANDO A VERIFICAÇÃO: `%s`." % pulo,
+            "O hook de commit é o que mede o que vai subir — se ele não "
+            "roda, o commit entra sem ninguém ter olhado. Pular a "
+            "verificação não conserta a falha que ela apontou: só apaga o "
+            "aviso e deixa a falha subir junto.",
+            "Conserte o que o hook acusou. Se o hook está errado, conserte o "
+            "hook — ele é código desta casa. Se for mesmo necessário pular, "
+            "repita com `%s <motivo>`, e o motivo fica no registro."
+            % MARCADOR_OK))
 
     termo = busca_com_acento(cmd)
     if termo:
@@ -615,13 +676,29 @@ def analisar(cmd, cwd=""):
 
 
 def registrar(motivos):
+    """Grava que o gate barrou. Falha AVISANDO, nunca em silencio.
+
+    ⚠️ O `except: pass` aqui era o unico erro deste arquivo que nao se
+    descobre depois: a recusa continuava funcionando, o usuario via a
+    mensagem, e o registro nunca existia. Um gate cuja evidencia some e
+    indistinguivel de um gate que nunca barrou nada.
+    """
     try:
         with open(GATES_LOG, "a", encoding="utf-8") as fh:
             fh.write("\t".join([
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "bash", "deny", "", motivos[0][0][:150]]) + "\n")
-    except Exception:
-        pass
+        return True
+    except Exception as e:                                  # noqa: BLE001
+        # Vai para stderr, e nao para stdout: o stdout deste hook e um
+        # protocolo JSON que o harness le, e sujar ele quebraria a recusa.
+        # Perder o log e ruim; quebrar o gate para avisar que o log falhou
+        # seria trocar um problema por um pior.
+        sys.stderr.write(
+            "[bash_na_porta] AVISO: nao consegui escrever o log de auditoria "
+            "em %s (%s). A recusa vale; o REGISTRO dela se perdeu.\n"
+            % (GATES_LOG, type(e).__name__))
+        return False
 
 
 def negar(motivos):

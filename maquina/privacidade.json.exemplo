@@ -17,15 +17,48 @@
     "",
     "Cada entrada e uma REGEX. Escape o que for literal."
   ],
-
+  "_leia_publico": [
+    "O QUE JA E PUBLICO POR DECISAO, e portanto nao conta como vazamento.",
+    "",
+    "Os arquivos de governanca de um repositorio publico (README, CHANGELOG,",
+    "SECURITY, CODE_OF_CONDUCT) CITAM a URL do proprio repositorio, e ela",
+    "carrega o nome da conta. Sem esta lista, todos eles sao reprovados.",
+    "",
+    "A saida errada seria isentar os arquivos inteiros. O README e justamente",
+    "o que mais fala de gente, e isenta-lo deixaria passar um nome de cliente",
+    "escrito ali. A saida certa e ensinar o detector que UMA string especifica",
+    "e publica por decisao, e continuar conferindo todo o resto do arquivo.",
+    "",
+    "⚠️ ACRESCENTE A URL DO SEU PROPRIO REPOSITORIO AQUI. A lista abaixo traz",
+    "so os enderecos de servico que valem para qualquer um.",
+    "",
+    "⚠️ Esta lista e curta de proposito e cada entrada e uma decisao tomada.",
+    "Ela nao e lugar para calar um achado incomodo: e para o que ja esta no ar",
+    "por escolha, e que reprovar seria o detector discordando de um fato."
+  ],
+  "publico_declarado": [
+    "img.shields.io",
+    "keepachangelog.com",
+    "semver.org",
+    "contributor-covenant.org",
+    "mozilla.org",
+    "github.com/mozilla/diversity",
+    "docs.github.com",
+    "editorconfig.org",
+    "git-scm.com",
+    "python.org"
+  ],
   "pessoa_empresa": [
-    "Fulano", "Sicrana", "Empresa Exemplo", "usuario-do-github"
+    "Fulano",
+    "Sicrana",
+    "Empresa Exemplo",
+    "usuario-do-github"
   ],
-
   "projeto_interno": [
-    "Projeto-Alfa", "Projeto-Beta", "Cliente[- ]Gama"
+    "Projeto-Alfa",
+    "Projeto-Beta",
+    "Cliente[- ]Gama"
   ],
-
   "_leia_caminho": [
     "Note o que NAO esta aqui: `~/.claude`. Ele nao identifica ninguem — e o",
     "diretorio do agente em qualquer maquina — e e o ALVO do gate do Bash, que",
@@ -38,27 +71,25 @@
     "disco e passava limpo por TODOS os detectores. O padrao e estrutural, nao",
     "um nome: qualquer slug nessa forma carrega um usuario."
   ],
-
   "caminho_do_disco": [
     "C:\\\\+Users\\\\+SEU_USUARIO",
     "/c/Users/SEU_USUARIO",
     "\\b[A-Za-z]--Users-[\\w.-]+",
     "[A-Z]:\\\\+Users"
   ],
-
   "incidente_com_data": [
     "\\b\\d{2}/\\d{2}(/\\d{4})?\\b",
     "\\b20\\d{2}-\\d{2}-\\d{2}\\b"
   ],
-
   "_leia_contas": [
     "As contas de git da sua casa. Repo cujo remote nao cita uma delas e de",
     "TERCEIRO: o `o_basico.py` nao o conta, porque medir a divida alheia",
     "envenena o numero que decide onde atacar."
   ],
-
-  "contas_da_casa": ["usuario-do-github", "organizacao-do-github"],
-
+  "contas_da_casa": [
+    "usuario-do-github",
+    "organizacao-do-github"
+  ],
   "_leia_trocas": [
     "As trocas MECANICAS do destilador: caminho de disco vira marcador, sem",
     "julgamento nenhum. Pares [padrao, substituto], aplicados em ordem.",
@@ -69,15 +100,28 @@
     "saia sem saber detectar caminho POSIX. Codigo publicado e quebrado e pior",
     "que codigo nao publicado — ninguem desconfia de uma peca que roda."
   ],
-
   "trocas_mecanicas": [
-    ["C:\\\\+Users\\\\+SEU_USUARIO\\\\+Projeto", "<PROJETOS>"],
-    ["C:\\\\+Users\\\\+SEU_USUARIO\\\\+\\.claude", "<CLAUDE>"],
-    ["C:\\\\+Users\\\\+SEU_USUARIO", "<CASA>"],
-    ["/c/Users/SEU_USUARIO/Projeto", "<PROJETOS>"],
-    ["/c/Users/SEU_USUARIO", "<CASA>"]
+    [
+      "C:\\\\+Users\\\\+SEU_USUARIO\\\\+Projeto",
+      "<PROJETOS>"
+    ],
+    [
+      "C:\\\\+Users\\\\+SEU_USUARIO\\\\+\\.claude",
+      "<CLAUDE>"
+    ],
+    [
+      "C:\\\\+Users\\\\+SEU_USUARIO",
+      "<CASA>"
+    ],
+    [
+      "/c/Users/SEU_USUARIO/Projeto",
+      "<PROJETOS>"
+    ],
+    [
+      "/c/Users/SEU_USUARIO",
+      "<CASA>"
+    ]
   ],
-
   "_leia_ip": [
     "IP publico. A regex ignora de proposito as faixas que NAO identificam a",
     "maquina de ninguem: privadas (10, 172.16-31, 192.168), loopback (127),",
@@ -91,21 +135,39 @@
     "e-mail casar. Sem usuario antes, o mesmo IP passava limpo. Gate que acerta",
     "por coincidencia acerta so enquanto a coincidencia durar."
   ],
-
   "ip_publico": [
     "\\b(?!(?:0|10|127|169\\.254|172\\.(?:1[6-9]|2\\d|3[01])|192\\.168|192\\.0\\.2|198\\.51\\.100|203\\.0\\.113)\\.)(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
   ],
-
   "_leia_email": [
     "O TLD e `[A-Za-z]{2,}`, e nao `\\w+`, por um falso positivo que travava",
     "trabalho legitimo: `root@203.0.113.77` — usuario e endereco os dois",
     "inventados — casava como e-mail. Caso de teste de `ssh` e cheio de",
     "`usuario@maquina`, e o detector acusava todos."
   ],
-
   "contato_url": [
     "https?://(?!github\\.com/(actions|checkout))[^\\s`\"']+",
     "\\b\\d{2}9?\\d{4}-?\\d{4}\\b",
     "[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}"
+  ],
+  "_leia_forma": [
+    "AS FORMAS DE LINHA QUE SAO ESTRUTURA DE ARQUIVO, NAO CONTEUDO.",
+    "",
+    "O caso que obrigou: o cabecalho de versao do Keep a Changelog traz a data",
+    "do lancamento, e a marca `incidente com data` o reprovava. A data ali e o",
+    "FORMATO do arquivo; a marca existe para pegar outra coisa, do tipo",
+    "*achado na checagem X, no dia tal*, que conta um episodio interno.",
+    "",
+    "⚠️ REGRA DURA: cada padrao e ancorado nas DUAS pontas (^ ... $) e a linha",
+    "INTEIRA tem de casar. Uma forma frouxa nao isenta uma linha: desliga o",
+    "detector para todo mundo.",
+    "",
+    "E a diferenca para a isencao que custou caro: aquela era por PREFIXO DE",
+    "NOME DE ARQUIVO, e crescia sozinha, porque bastava batizar o proximo",
+    "arquivo igual. Esta exige escrever a linha exatamente como um cabecalho",
+    "de versao semver, e nao isenta nenhuma outra linha do arquivo."
+  ],
+  "forma_publica": [
+    "^#{1,6}\\s*\\[(Unreleased|N[aã]o publicado|v?\\d+\\.\\d+\\.\\d+[\\w.\\-]*)\\](\\s*[-–]\\s*\\d{4}-\\d{2}-\\d{2})?\\s*$",
+    "^\\[v?\\d+\\.\\d+\\.\\d+[\\w.\\-]*\\]:\\s*\\S+$"
   ]
 }

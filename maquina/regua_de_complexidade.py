@@ -41,7 +41,7 @@ import sys
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 SIMPLE, STANDARD, COMPLEX = "SIMPLE", "STANDARD", "COMPLEX"

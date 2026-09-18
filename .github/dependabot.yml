@@ -1,0 +1,23 @@
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+#
+# So `github-actions` aqui, e o motivo e honesto: este projeto NAO TEM
+# dependencias. Python puro, sem `requirements.txt`, sem pacote instalado. Um
+# bloco `pip` seria decoracao, ficaria verde para sempre sem nunca ter olhado
+# nada.
+#
+# O que existe de dependencia externa sao as duas actions do CI, e elas estao
+# fixadas por SHA. Sem o dependabot, um SHA fixado NUNCA se atualiza, nem
+# quando a correcao e de seguranca. E exatamente esse o buraco que o pinning
+# abre, e e este arquivo que o fecha.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"

@@ -51,7 +51,7 @@ import sys
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 # 🔴 O CAMINHO DA PROPRIA MAQUINA E DERIVADO DO DISCO, e nao pode ser uma
@@ -71,6 +71,16 @@ DURA, MEDIA, NENHUMA = "dura", "media", "nenhuma"
 # mundo real sem ninguem no meio. Sao os mesmos verbos da R2 do soberano.
 EFEITO_DURO = {"deploy", "cobranca"}
 EFEITO_MEDIO = {"publica", "mensagem"}
+
+
+def erro(msg):
+    """Diagnostico vai para stderr; stdout fica so com resultado.
+
+    Quem chama esta peca num `|` ou num `>` precisa poder separar as duas
+    coisas. Misturadas, quem consome tem de adivinhar qual linha e resultado e
+    qual e reclamacao.
+    """
+    sys.stderr.write(msg + chr(10))
 
 
 def nivel(efeito: str, dado_de_cliente: str, lifecycle: str) -> str:
@@ -203,7 +213,7 @@ def main(argv) -> int:
     elif len(argv) == 2:
         pasta = argv[1]
         if not os.path.isdir(pasta):
-            print("pasta nao existe: %s" % pasta)
+            erro("pasta nao existe: %s" % pasta)
             return 2
         c = campos(pasta)
         efeito, cliente, ciclo = (c["efeito_no_mundo"], c["dado_de_cliente"],

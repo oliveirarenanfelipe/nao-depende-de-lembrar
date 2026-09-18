@@ -1,0 +1,48 @@
+# Normalizacao de fim de linha.
+#
+# Por que este arquivo existe, medido: o repositorio guardava LF nos 28
+# arquivos (certo), e um `git clone` no Windows entregava CRLF em TODOS os 28.
+# Os avisos `LF will be replaced by CRLF` apareciam em cada commit, e eram
+# sintoma, nao ruido.
+#
+# Sem isto, quem edita no Windows gera diff de arquivo inteiro na primeira
+# gravacao, e o historico deixa de dizer o que mudou de verdade.
+
+* text=auto
+
+# Codigo e configuracao: sempre LF, em qualquer sistema.
+*.py    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.cfg   text eol=lf
+*.txt   text eol=lf
+*.exemplo text eol=lf
+
+# Script de shell QUEBRA com CRLF: o interpretador le o `\r` como parte do
+# comando. Nao e preferencia de estilo, e execucao.
+*.sh    text eol=lf
+
+# Windows exige CRLF nestes.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Sem extensao, e texto.
+LICENSE text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+
+# Binario nao se normaliza nunca.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz  binary
+
+# Estatistica de linguagem do GitHub: documentacao nao conta como codigo.
+*.md linguist-documentation

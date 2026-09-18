@@ -1,0 +1,90 @@
+{
+  "_leia": [
+    "O ARRANJO DO REPOSITORIO PUBLICADO — qual arquivo de `publicado/` vira",
+    "qual arquivo do repositorio, e onde.",
+    "",
+    "🔴 POR QUE ISTO E DADO. O arranjo ja morou num script de sessao,",
+    "escrito na hora de montar e jogado fora depois. O `--conferir` provava o",
+    "CONTEUDO de cada arquivo e nada provava o ARRANJO: quais sobem, com que",
+    "nome, em que pasta. Um arquivo esquecido nao aparecia como erro —",
+    "aparecia como um repositorio que monta e roda, faltando uma peca.",
+    "",
+    "⚠️ A LISTA E FECHADA, nao uma varredura. Varrer `publicado/` e publicar o",
+    "que aparecer significa que um arquivo de rascunho largado ali sobe junto.",
+    "O que nao esta declarado aqui, ou nao casa uma das regras de `por_sufixo`,",
+    "faz a montagem REPROVAR dizendo o nome."
+  ],
+
+  "_leia_renomeados": [
+    "Os que mudam de nome ao sair. O sufixo `-do-repo` existe porque em",
+    "`publicado/` eles nao podem ter o nome final: um `.gitignore` de verdade",
+    "dentro da pasta de saida seria lido pelo git da casa."
+  ],
+  "renomeados": {
+    ".gitignore": "gitignore-do-repo",
+    ".gitattributes": "gitattributes-do-repo",
+    ".editorconfig": "editorconfig-do-repo",
+    "ruff.toml": "ruff-do-repo.toml",
+    ".github/CODEOWNERS": "CODEOWNERS-do-repo",
+    ".github/dependabot.yml": "dependabot-do-repo.yml",
+    ".github/workflows/testes.yml": "ci-do-repo.yml",
+    ".github/workflows/codeql.yml": "codeql-do-repo.yml",
+    ".github/workflows/release.yml": "release-do-repo.yml",
+    ".githooks/pre-commit": "githooks-pre-commit"
+  },
+
+  "_leia_raiz": ["Os que sobem na raiz com o mesmo nome."],
+  "na_raiz": [
+    "LICENSE", "README.md", "README.en.md", "SECURITY.md", "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md", "CHANGELOG.md", "DECISOES.md"
+  ],
+
+  "_leia_pasta": [
+    "A pasta `github-templates/` vira `.github/`, com a arvore dela inteira."
+  ],
+  "pastas": {"github-templates": ".github"},
+
+  "_leia_sufixo": [
+    "As pecas e os dados. O destino sai do NOME, e `portas` lista quem mora",
+    "em `portas/` — todo o resto vai para `maquina/`.",
+    "",
+    "⚠️ `portas` e uma lista de nomes exatos, nunca um prefixo. Prefixo cresce",
+    "sozinho, e esta casa ja pagou por isso tres vezes."
+  ],
+  "por_sufixo": {
+    "sufixos": [".py", ".exemplo"],
+    "portas": [
+      "bash_na_porta", "catalogo_na_porta", "fundacao_na_porta",
+      "humanizar_na_porta", "seguranca_na_porta", "soberano_na_porta",
+      "seguranca_seeds", "fronteira_lib",
+      "casa.json.exemplo", "seeds_inseguros.json.exemplo"
+    ],
+    "padrao": "maquina"
+  },
+
+  "_leia_ficam": [
+    "O que mora em `publicado/` e NAO sobe — por nome exato e com o motivo.",
+    "",
+    "Um arquivo que nao sobe precisa estar declarado aqui do mesmo jeito que",
+    "um que sobe. Sem isto, a unica forma de a montagem saber que ele nao",
+    "deve subir seria o silencio, e silencio nao separa *decidi deixar de",
+    "fora* de *esqueci*."
+  ],
+  "ficam": {
+    ".gitignore": "e o gitignore DESTA pasta, que esconde o rascunho e o dado da casa do git interno; o do repositorio publicado e o `gitignore-do-repo`"
+  },
+
+  "_leia_fatos": [
+    "A linha do README que carrega numeros medidos. Ela e RECALCULADA pelo",
+    "`montar_repo.py --fatos`, e o `--conferir` REPROVA quando o que esta",
+    "escrito no README diverge do que as suites respondem agora.",
+    "",
+    "🔑 A ideia veio do `basic-engineering`, e a frase dele diz tudo: *um",
+    "painel de fatos que ninguem re-roda vira um painel de fatos que mente*.",
+    "O nosso ja mentia — dizia 9 suites quando o repositorio tinha 15."
+  ],
+  "painel_de_fatos": {
+    "arquivo": "README.md",
+    "prefixo": "Medido: "
+  }
+}

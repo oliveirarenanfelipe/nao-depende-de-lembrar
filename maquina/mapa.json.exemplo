@@ -78,6 +78,20 @@
       "chamador": "destilar.py"
     },
     {
+      "camada": "destilacao",
+      "nome": "antes_de_publicar",
+      "onde": "FUND",
+      "teste": "testar_antes_de_publicar.py",
+      "chamador": "CI do repo (job o-que-sobe) + a mao antes do push"
+    },
+    {
+      "camada": "destilacao",
+      "nome": "montar_repo",
+      "onde": "FUND",
+      "teste": "testar_montar_repo.py",
+      "chamador": "CI do repo (job o-que-sobe) + a mao, ao montar"
+    },
+    {
       "camada": "regua",
       "nome": "regua_de_trava",
       "onde": "FUND",

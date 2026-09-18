@@ -11,7 +11,7 @@ Por isso as checagens aqui são quase todas sobre o ACUSAR — peça sumida do
 disco, teste que reprova, peça sem teste — e a mutação desarma justamente a
 execução do teste, que é a única coisa que o mapa sabe e um README não.
 
-CHAMADOR: o verificador diário de saúde da casa.
+CHAMADOR: `~/.claude/hooks/mente_health.py`, bloco `[6u]`.
 """
 import io
 import os
@@ -21,12 +21,12 @@ import tempfile
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                           # noqa: BLE001
+except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
-import inventario as inv                                    # noqa: E402
+import inventario as inv  # noqa: E402
 
 PASS = 0
 FALHA = 0
@@ -117,6 +117,82 @@ try:
     # descobre depois: se o arquivo sumir e a peca cair para lista vazia, ela
     # responde `nenhuma peca quebrada` sobre NENHUMA peca — e o painel fica
     # verde sobre o nada. Entao a regra e falhar alto, e e o que se prova aqui.
+    # -- 4b. CAMINHO PRESO: a peca escreve so onde ELA mora ------------------
+    # 🔴 Esta checagem nasceu de um conserto pela METADE. O `gates.log` estava
+    # com caminho fixo em TRES portas; eu arrumei UMA e as outras duas
+    # seguiram apontando para uma pasta que so existe nesta casa, com o erro
+    # de escrita engolido. Consertar uma de tres e pior que nao consertar
+    # nenhuma: parece resolvido, e nada acusa o resto.
+    #
+    # 🔑 E a checagem se pagou na PRIMEIRA execucao: achou uma quarta peca com
+    # o caminho absoluto do arquivo soberano escrito dentro dela.
+    print(N + "== 4b. caminho preso: a peca escreve onde ELA mora ==")
+
+    presa = os.path.join(banca, "peca_presa.py")
+    escreve(presa,
+            'import os\n'
+            'LOG = os.path.join(os.path.expanduser("~"), ".claude", "hooks",\n'
+            '                   "gates.log")\n')
+    solta = os.path.join(banca, "peca_solta.py")
+    escreve(solta,
+            'import os\n'
+            'LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)),\n'
+            '                   "gates.log")\n')
+    # E o caso do caminho absoluto, montado para o arquivo nao se acusar.
+    absoluta = os.path.join(banca, "peca_absoluta.py")
+    escreve(absoluta, 'CAMINHO = "%s:%sUsers%sfulano%sx.md"\n'
+            % ("C", chr(92) * 2, chr(92) * 2, chr(92) * 2))
+
+    inv.PECAS = [("t", "peca_presa", banca, "", "alguem"),
+                 ("t", "peca_solta", banca, "", "alguem"),
+                 ("t", "peca_absoluta", banca, "", "alguem")]
+    achadas = inv.caminho_preso(inv.levantar(rodar_testes=False))
+    diz("acusa a peca que escreve na pasta do agente",
+        "peca_presa" in achadas, str(achadas))
+    diz("acusa a peca com caminho absoluto de uma maquina",
+        "peca_absoluta" in achadas, str(achadas))
+    # ⚠️ O outro lado importa igual: uma checagem que acusa TODO mundo nao
+    # separa nada, e e desligada na primeira semana.
+    diz("e NAO acusa a peca que deriva do proprio arquivo",
+        "peca_solta" not in achadas, str(achadas))
+
+    # -- 4c. A TAXONOMIA DE ERRO, e por que ela e checagem e nao documento ---
+    # 🔴 A lista de codigos de saida JA EXISTIA na cabeca de quem escreveu as
+    # pecas, e JA TINHA DIVERGIDO: o `2` significava "uso errado" em duas
+    # pecas e "achou arquivo solto" numa terceira. Duas pecas dizendo coisas
+    # diferentes com o mesmo numero e pior que nao ter numero — quem le o
+    # codigo de saida num script decide errado, e o script segue calado.
+    #
+    # 🔑 Um documento de convencao nao teria pegado isso, porque documento
+    # nao e lido na hora de escrever a peca seguinte. A pergunta feita todo
+    # dia pega.
+    print(N + "== 4c. taxonomia de erro: nenhum codigo fora da lista ==")
+
+    escreve(os.path.join(banca, "peca_certa.py"),
+            "import sys" + N + "def main():" + N + "    return 2" + N
+            + "sys.exit(main())" + N)
+    escreve(os.path.join(banca, "peca_torta.py"),
+            "import sys" + N + "def main():" + N + "    return 7" + N
+            + "sys.exit(main())" + N)
+    # ⚠️ Retorno CALCULADO nao e olhado, e isso e deliberado: inventar analise
+    # de fluxo aqui daria um detector que erra nos dois sentidos.
+    escreve(os.path.join(banca, "peca_calculada.py"),
+            "import sys" + N + "sys.exit(1 if 1 else 0)" + N)
+
+    inv.PECAS = [("t", "peca_certa", banca, "", "alguem"),
+                 ("t", "peca_torta", banca, "", "alguem"),
+                 ("t", "peca_calculada", banca, "", "alguem")]
+    fora = dict(inv.codigos_de_saida(inv.levantar(rodar_testes=False)))
+    diz("acusa a peca que devolve um codigo fora da lista",
+        fora.get("peca_torta") == [7], str(fora))
+    diz("e NAO acusa a que usa um codigo da lista",
+        "peca_certa" not in fora, str(fora))
+    diz("e NAO acusa retorno calculado, que ela nao sabe ler",
+        "peca_calculada" not in fora, str(fora))
+    diz("a lista tem os quatro codigos, cada um com o que significa",
+        sorted(inv.SAIDAS) == [0, 1, 2, 3]
+        and all(inv.SAIDAS.values()), str(sorted(inv.SAIDAS)))
+
     print(N + "== 5. o mapa e DADO, e some-lo e ERRO (nao lista vazia) ==")
 
     try:
