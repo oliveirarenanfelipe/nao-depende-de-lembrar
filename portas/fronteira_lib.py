@@ -146,7 +146,13 @@ PREFIXO_MEMORIA = "C--" + os.path.join("Users", USUARIO, os.path.basename(
 # 🔑 O valor ja estava calculado logo acima. Remontar um dado que existe e
 # como copiar uma lista: as duas versoes divergem no primeiro caso que o
 # autor nao imaginou.
-_RAIZ_MINUSCULA = os.path.normcase(RAIZ_PROJ).replace("/", os.sep) + os.sep
+#
+# ⚠️ `.lower()` EXPLICITO, e nao `normcase`. O `normcase` faz lowercase no
+# Windows e NAO faz no Linux — entao la a comparacao contra um caminho ja
+# passado por `.lower()` nunca casava, o trecho caia no fallback do nome da
+# pasta, e a escrita na propria memoria de uma etapa era NEGADA. Achado pelo
+# CI, na primeira rodada em Linux; aqui o defeito era invisivel.
+_RAIZ_MINUSCULA = RAIZ_PROJ.replace("/", os.sep).lower() + os.sep
 
 
 def apelido_de_base(base):
