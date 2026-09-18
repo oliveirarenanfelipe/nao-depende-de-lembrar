@@ -83,6 +83,30 @@ def carregar_mecanicas(fonte=None):
 MECANICAS = carregar_mecanicas()
 
 
+def carregar_trocas_de_data(fonte=None):
+    """As trocas que tiram a DATA do incidente. Lista vazia e valida.
+
+    🔴 POR QUE ELAS SAO MECANICAS E NAO REESCRITA HUMANA. Ao destilar o
+    catalogo de regras da casa, 71 de 158 linhas marcadas tinham como UNICA
+    marca a data de um incidente. Sao todas a mesma transformacao, feita 71
+    vezes a mao — e que se repetiria a cada regra nova.
+
+    🔑 A regua da casa e `o numero sobrevive, o dono sai`. A data de um
+    incidente interno e dono: ela diz QUANDO esta casa quebrou. O numero que
+    importa fica intacto, porque nenhuma destas trocas toca em numero solto.
+
+    ⚠️ Lista vazia e valida, ao contrario das `trocas_mecanicas`: sem ela o
+    destilador apenas deixa de tirar datas, e a linha com data continua sendo
+    REPROVADA pelo detector. O modo de falha e barulhento, nao silencioso.
+    """
+    with io.open(fonte or mp.FONTE, encoding="utf-8") as fh:
+        pares = (json.load(fh).get("trocas_de_data") or [])
+    return [(re.compile(p), novo) for p, novo in pares]
+
+
+DE_DATA = carregar_trocas_de_data()
+
+
 def erro(msg):
     """Diagnostico vai para stderr; stdout fica so com resultado.
 
@@ -94,9 +118,19 @@ def erro(msg):
 
 
 def destilar_texto(t):
-    """So as trocas mecanicas. Devolve (texto, quantas trocas)."""
+    """So as trocas mecanicas. Devolve (texto, quantas trocas).
+
+    ⚠️ A ORDEM DAS DUAS FAMILIAS IMPORTA e nao e arbitraria. Primeiro os
+    caminhos de disco, que viram marcador; depois as datas, que somem. Se a
+    data saisse antes, um caminho como `logs/13-09/saida` perderia o pedaco no
+    meio e deixaria de casar a troca de caminho — a peca sairia com meio
+    caminho da casa dentro.
+    """
     n = 0
     for rx, novo in MECANICAS:
+        t, k = rx.subn(novo, t)
+        n += k
+    for rx, novo in DE_DATA:
         t, k = rx.subn(novo, t)
         n += k
     return t, n

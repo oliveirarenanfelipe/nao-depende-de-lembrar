@@ -175,5 +175,88 @@
   "forma_publica": [
     "^#{1,6}\\s*\\[(Unreleased|N[aã]o publicado|v?\\d+\\.\\d+\\.\\d+[\\w.\\-]*)\\](\\s*[-–]\\s*\\d{4}-\\d{2}-\\d{2})?\\s*$",
     "^\\[v?\\d+\\.\\d+\\.\\d+[\\w.\\-]*\\]:\\s*\\S+$"
+  ],
+  "_leia_data": [
+    "AS TROCAS QUE TIRAM A DATA DO INCIDENTE — mecânicas, sem julgamento.",
+    "",
+    "🔴 POR QUE ELAS EXISTEM. Ao destilar o catálogo de regras da casa, 71 de",
+    "158 linhas marcadas tinham como ÚNICA marca a data de um incidente. São",
+    "todas a mesma transformação, feita 71 vezes à mão — e ela se repetiria a",
+    "cada regra nova.",
+    "",
+    "🔑 A régua da casa é `o número sobrevive, o dono sai`. A data de um",
+    "incidente interno é dono: ela diz QUANDO esta casa quebrou. O número que",
+    "importa — 235 achados, 290 arquivos, 48 ocorrências — fica intacto,",
+    "porque nenhuma destas trocas toca em número solto.",
+    "",
+    "⚠️ A ORDEM É PARTE DA REGRA. A troca genérica vem por último, depois das",
+    "que sabem o contexto: um `[medido DD/MM]` tem de virar `[medido]` ANTES de a",
+    "genérica apagar a data e deixar `[medido ]` com o espaço sobrando.",
+    "",
+    "",
+    "⚠️ NAO HA TROCA DE LIMPEZA DE ESPACO AQUI, e a tentativa custou caro:",
+    "uma regra que colapsa espaco duplo parece inofensiva e COME O ALINHAMENTO",
+    "do codigo — `except:  # noqa` vira `except: # noqa` em todo arquivo",
+    "destilado. Medido: 38 pecas passaram a divergir de uma vez. O espaco que",
+    "sobra depois de tirar a data se conserta na reescrita, que e onde ha",
+    "julgamento."
+  ],
+  "trocas_de_data": [
+    [
+      "\\[medido \\d{2}/\\d{2}(?:/\\d{4})?\\]",
+      "[medido]"
+    ],
+    [
+      "\\[medido em \\d{2}/\\d{2}(?:/\\d{4})?\\]",
+      "[medido]"
+    ],
+    [
+      "\\(medido em \\d{2}/\\d{2}(?:/\\d{4})?\\)",
+      "(medido)"
+    ],
+    [
+      "\\bmedido em \\d{2}/\\d{2}(?:/\\d{4})?\\b",
+      "medido"
+    ],
+    [
+      ",? (?:em|de|desde|at[eé]|ap[oó]s) \\d{2}/\\d{2}(?:/\\d{4})?(?=[\\s,.:;)]|$)",
+      ""
+    ],
+    [
+      " \\(\\d{2}/\\d{2}(?:/\\d{4})?\\)",
+      ""
+    ],
+    [
+      "\\b\\d{2}/\\d{2}(?:/\\d{4})?: ",
+      ""
+    ],
+    [
+      "\\b\\d{2}/\\d{2}(?:/\\d{4})? (?:-|—) ",
+      ""
+    ],
+    [
+      "\\[medido 20\\d{2}-\\d{2}-\\d{2}\\]",
+      "[medido]"
+    ],
+    [
+      ",? (?:em|de|desde|at\\u00e9|ate) 20\\d{2}-\\d{2}-\\d{2}(?=[\\s,.:;)]|$)",
+      ""
+    ],
+    [
+      " \\((?:[^)]*, )?20\\d{2}-\\d{2}-\\d{2}\\)",
+      ""
+    ],
+    [
+      "\\b20\\d{2}-\\d{2}-\\d{2}: ",
+      ""
+    ],
+    [
+      "\\b20\\d{2}-\\d{2}-\\d{2}\\b",
+      ""
+    ],
+    [
+      "\\b\\d{2}/\\d{2}(?:/\\d{4})?\\b",
+      ""
+    ]
   ]
 }

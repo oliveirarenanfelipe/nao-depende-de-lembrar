@@ -97,7 +97,11 @@ CATALOGO_FALSO = {
     "pessoa_empresa": ["Fulano de Tal", "Empresa Inventada"],
     "projeto_interno": ["Projeto-Alfa", "Projeto-Beta"],
     "caminho_do_disco": [r"C:\\+Users\\+olive", "<CASA>"],
-    "incidente_com_data": [r"\b\d{2}/\d{2}(/\d{4})?\b"],
+    # As DUAS formas, e a segunda passou a importar: as trocas mecanicas
+    # removem `DD/MM` antes da medicao, entao so a ISO ainda serve para provar
+    # o que o destilador RECUSA em vez de limpar.
+    "incidente_com_data": [r"\b\d{2}/\d{2}(/\d{4})?\b",
+                           r"\b20\d{2}-\d{2}-\d{2}\b"],
     # A familia do IP usa a regex REAL, copiada do catalogo de verdade, e nao
     # uma simplificacao: e a unica cujo valor esta todo nas EXCECOES (faixa
     # privada, loopback, documentacao). Uma versao simplificada aqui provaria
@@ -124,6 +128,9 @@ marcar("o teste roda contra um catalogo de MENTIRA, escrito por ele",
 PESSOA = CATALOGO_FALSO["pessoa_empresa"][0]
 PROJETO = CATALOGO_FALSO["projeto_interno"][0]
 DATA = "%02d/%02d" % (6, 9)          # montada, nunca escrita: o detector le data
+# A forma ISO, que as trocas mecanicas NAO removem — e por isso serve para
+# provar o que o destilador RECUSA, e nao o que ele limpa.
+DATA_ISO = "%04d-%02d-%02d" % (2026, 6, 9)
 B = chr(92) * 2                      # a barra dupla do caminho Windows
 CASA_FALSA = "C:" + B + "Users" + B + "olive" + B + "Projeto"
 
@@ -172,9 +179,17 @@ AMOSTRAS = {
     "projeto": '"""Peca que cita projeto interno.\n\n'
                'Medido no %s, que tinha o defeito.\n"""\n'
                'def rodar():\n    return 4\n' % PROJETO,
+    # ⚠️ A DATA AQUI E A QUE O DESTILADOR NAO SABE TIRAR. As trocas mecanicas
+    # removem a forma `DD/MM`, entao uma peca com essa forma passou a ser
+    # destilavel em vez de recusada — de proposito, e provado no grupo 2k.
+    # Manter aqui uma data que ELAS limpam faria este grupo medir o destilador
+    # em vez do detector, e ele reprovaria por acertar.
+    #
+    # 🔑 O que este grupo prova continua sendo o mesmo: o que o destilador NAO
+    # sabe limpar, ele RECUSA. A forma ISO e o caso.
     "data": '"""Peca que cita incidente com data.\n\n'
             'O estrago aconteceu em %s e custou caro.\n"""\n'
-            'def rodar():\n    return 5\n' % DATA,
+            'def rodar():\n    return 5\n' % DATA_ISO,
     "contato": '"""Peca com contato.\n\nDuvidas: %s\n"""\n'
                'def rodar():\n    return 6\n' % EMAIL_FALSO,
 }
@@ -189,9 +204,13 @@ for nome, texto in AMOSTRAS.items():
 # que ler as duas, e o teste passa nos dois mundos. Baseline que nao distingue
 # o certo do errado nao e baseline.
 PROVA_SUJA = "prova_da_limpa.py"
+# ⚠️ A SUJEIRA AQUI E UM NOME, e nao uma data. Toda forma de data passou a ser
+# limpa por troca mecanica, e uma linha limpa nao chega marcada ao rascunho —
+# o grupo mediria o destilador acertando e chamaria isso de falha. Nome de
+# pessoa continua exigindo julgamento, que e o que este grupo mede.
 io.open(os.path.join(SANDBOX, PROVA_SUJA), "w", encoding="utf-8").write(
-    '"""Prova da peca limpa.\n\nEscrita depois do estrago de %s.\n"""\n'
-    'def testar():\n    return 7\n' % DATA)
+    '"""Prova da peca limpa.\n\nEscrita a pedido de %s.\n"""\n'
+    'def testar():\n    return 7\n' % PESSOA)
 
 inv.PECAS = [("teste", nome, SANDBOX,
               PROVA_SUJA if nome == "limpa" else "", "sandbox")
@@ -208,10 +227,21 @@ def publica(nome):
 
 
 # -- 1. DEVE RECUSAR ---------------------------------------------------------
+# 🔴 A FAMILIA DA DATA SAIU DESTA LISTA, e a mudanca e de desenho, nao um
+# afrouxamento. Ela passou a ser tratada por TROCA MECANICA, como o caminho de
+# disco sempre foi: a data de um incidente nao carrega ideia, so diz quando
+# esta casa quebrou, e tira-la nao exige julgamento nenhum.
+#
+# 🔑 O que se perderia se ela ficasse aqui: 158 reescritas manuais, das quais
+# 71 eram a MESMA transformacao. Reescrita a mao repetida e o sinal de que
+# falta uma regra — e regra que falta se paga de novo a cada peca nova.
+#
+# ⚠️ A cobertura nao sumiu, mudou de grupo. O 2k mede as duas metades: a data
+# sai e o NUMERO fica. Uma troca que comesse `235 achados` destruiria a prova
+# que a regra carrega, e o destilador sairia verde por cima do estrago.
 print("\n== 1. DEVE RECUSAR (o que vaza nao volta) ==")
 for nome, rotulo in (("pessoa", "nome de pessoa"),
                      ("projeto", "nome de projeto interno"),
-                     ("data", "incidente com data"),
                      ("contato", "email de contato")):
     liberou = publica(nome)
     marcar("recusa peca com %s" % rotulo, not liberou)
@@ -295,7 +325,8 @@ marcar("   o rascunho do teste existe", os.path.isfile(rasc_t))
 texto_t = io.open(rasc_t, encoding="utf-8").read() \
     if os.path.isfile(rasc_t) else ""
 marcar("   com a linha privada marcada",
-       "# >>> PRIVADO[incidente com data]" in texto_t)
+       "# >>> PRIVADO[pessoa/empresa]" in texto_t,
+       texto_t[:120])
 
 
 # -- 2e. A REESCRITA HUMANA E DADO, e sobrevive a regenerar o rascunho -------
@@ -683,11 +714,32 @@ print("\n== 2i. o `.exemplo` ensina a mesma coisa que o real ==")
 # reprovava em todo clone, onde o exemplo ja mora ao lado do real. Esta lista
 # de lugares e o conserto, e fica escrita porque a licao se repete: peca que
 # viaja nao pode conhecer um endereco so.
-PARES = ["privacidade.json", "mapa.json", "publicar_isentos.json"]
-for _real in PARES:
-    cr = os.path.join(AQUI, _real)
-    ce = ([c for c in (os.path.join(AQUI, "publicado", _real + ".exemplo"),
-                       os.path.join(AQUI, _real + ".exemplo"))
+# 🔴 O `casa.json` ENTROU NESTA LISTA, e a falta dele custou caro. Eu
+# acrescentei a chave `projetos` ao arquivo real e nao ao `.exemplo`. Sem ela,
+# a biblioteca de fronteira LEVANTA — e o gate do Bash, que depende dela, NEGA
+# TUDO no repositorio publicado. Medido: `git log -n 5` barrado.
+#
+# 🔑 O gate estava certo: negar e o lado seguro. O que faltava era esta
+# pergunta. Uma lista de pares escrita a mao esquece o par que nasce depois, e
+# a unica defesa e a lista dizer ONDE cada real mora, para nenhum ficar fora
+# por morar noutro lugar.
+# ⚠️ CADA PAR PODE MORAR EM DOIS ARRANJOS, e ignorar isso foi erro meu: nesta
+# casa o `casa.json` fica na pasta do agente; no repositorio publicado ele fica
+# em `portas/`, ao lado da peca que o le. Procurar num lugar so faz o par
+# "sumir" do outro lado, e a checagem reprova por nao achar, nao por divergir.
+_PORTAS = os.path.join(os.path.dirname(AQUI), "portas")
+_CASA_HOOKS = os.path.join(os.path.expanduser("~"), ".claude", "hooks")
+PARES = [("privacidade.json", [AQUI]),
+         ("mapa.json", [AQUI]),
+         ("publicar_isentos.json", [AQUI]),
+         ("arranjo.json", [AQUI]),
+         ("casa.json", [_CASA_HOOKS, _PORTAS, AQUI])]
+for _real, _ondes in PARES:
+    cr = ([c for c in (os.path.join(o, _real) for o in _ondes)
+           if os.path.isfile(c)] or [""])[0]
+    ce = ([c for c in [os.path.join(AQUI, "publicado", _real + ".exemplo"),
+                       os.path.join(AQUI, _real + ".exemplo")]
+           + [os.path.join(o, _real + ".exemplo") for o in _ondes]
            if os.path.isfile(c)] or [""])[0]
     if not (os.path.isfile(cr) and ce):
         marcar("o par %s existe num dos arranjos" % _real, False,
@@ -700,6 +752,68 @@ for _real in PARES:
            kr == ke,
            "falta no exemplo: %s | sobra: %s"
            % (sorted(kr - ke) or "-", sorted(ke - kr) or "-"))
+
+# -- 2k. AS TROCAS DE DATA TIRAM O DONO E DEIXAM O NUMERO -------------------
+# 🔴 ESTA FAMILIA NASCEU DE 71 REESCRITAS IDENTICAS. Ao destilar o catalogo de
+# regras da casa, 71 de 158 linhas marcadas tinham como UNICA marca a data de
+# um incidente — todas a mesma transformacao, feita a mao, e que se repetiria
+# a cada regra nova.
+#
+# 🔑 A regua e `o numero sobrevive, o dono sai`, e este grupo mede os DOIS
+# lados. O lado que mais importa e o segundo: uma troca de data que comesse
+# `235 achados` ou `48 ocorrencias` destruiria a prova que a regra carrega, e
+# o destilador sairia verde por cima de um texto empobrecido.
+print("\n== 2k. as trocas de data tiram o dono e deixam o numero ==")
+
+_D = amostra_positiva("13", "/", "09")
+_DL = amostra_positiva("14", "/", "09", "/", "2026")
+CASOS_DATA = [
+    ("[medido %s]" % _D, "[medido]"),
+    ("235 achados em codigo real [medido %s]." % _D,
+     "235 achados em codigo real [medido]."),
+    ("O gate abriu para `.yml` em %s." % _D, "O gate abriu para `.yml`."),
+    ("%s: a 1a versao deu 290 arquivos." % _D, "a 1a versao deu 290 arquivos."),
+    ("A regra entrou em %s, e pegou 48 casos." % _DL,
+     "A regra entrou, e pegou 48 casos."),
+    ("Medido (%s): 1.489 arquivos." % _D, "Medido: 1.489 arquivos."),
+]
+for _cru, _esperado in CASOS_DATA:
+    _saiu, _ = ds.destilar_texto(_cru)
+    marcar("`%s` -> sem data" % _cru[:34], _saiu == _esperado,
+           "saiu %r, esperava %r" % (_saiu, _esperado))
+
+# ⚠️ O LADO QUE IMPEDE O ESTRAGO: nenhum numero que nao seja data pode sumir.
+NUMEROS = ["235 achados", "1.489 arquivos", "48 ocorrencias", "0,85 de peso",
+           "R$ 37 por kit", "3.2.1 da versao", "porta 4001", "timeout de 500"]
+for _n in NUMEROS:
+    _saiu, _ = ds.destilar_texto(_n)
+    marcar("   o numero `%s` sobrevive" % _n, _saiu == _n, repr(_saiu))
+
+# E a data NAO pode ser confundida com uma fracao ou uma versao.
+marcar("uma fracao `1/2` nao e tratada como data",
+       ds.destilar_texto("metade, 1/2 do total")[0] == "metade, 1/2 do total")
+marcar("e a linha limpa passa intacta",
+       ds.destilar_texto("uma frase sem nada demais")[0]
+       == "uma frase sem nada demais")
+
+# A MUTACAO: sem as trocas, a linha com data volta a ser REPROVADA. Ela nao
+# vaza — o detector a pega — mas a reescrita manual volta a ser obrigatoria.
+_de_data_orig = ds.DE_DATA
+try:
+    ds.DE_DATA = []
+    _sem, _ = ds.destilar_texto("235 achados [medido %s]." % _D)
+    _det = bool(mp.marcas_da_linha(_sem, marcas=REAIS))
+finally:
+    ds.DE_DATA = _de_data_orig
+print("  [%s] sem as trocas, a linha com data volta a ser acusada"
+      % ("DETECTADA" if _det else "SOBREVIVEU"))
+if not _det:
+    FALHA += 1
+marcar("   -- controle: com as trocas armadas, ela sai limpa",
+       not mp.marcas_da_linha(
+           ds.destilar_texto("235 achados [medido %s]." % _D)[0],
+           marcas=REAIS))
+
 
 # -- 2j. O CATALOGO DE EXEMPLO NAO PODE ACUSAR O QUE VAI PUBLICADO ----------
 # 🔴 O DETECTOR ESTAVA MEDINDO A SI MESMO, e quem mostrou foi o CI. O
@@ -946,8 +1060,11 @@ limpar_saida()
 
 # -- 4. CONTROLE -------------------------------------------------------------
 print("\n== 4. controle: restaurado, o veredito volta ==")
-for nome in ("pessoa", "projeto", "data", "contato"):
+# A `data` saiu desta lista junto com o grupo 1: ela virou troca mecanica, e
+# exigir recusa aqui seria exigir o comportamento errado.
+for nome in ("pessoa", "projeto", "contato"):
     marcar("controle: %s volta a ser recusada" % nome, not publica(nome))
+marcar("controle: `data` volta a ser LIMPA (e nao recusada)", publica("data"))
 marcar("controle: a peca limpa volta a ser liberada", publica("limpa"))
 
 

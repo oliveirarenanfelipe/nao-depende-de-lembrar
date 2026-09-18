@@ -182,6 +182,67 @@ try:
     diz("e o `_rascunho` NAO e montado",
         not [x for x in no_disco if "meio_feito" in x], str(sorted(no_disco)))
 
+    print(N + "== 4b. MARCADOR DE TROCA EM CODIGO ==")
+    # 🔴 A CHECAGEM QUE FALTAVA, e o defeito que ela pega passou pelo
+    # `--conferir` sem nenhum sinal. A troca mecanica transforma o caminho de
+    # disco num marcador. Em PROSA isso e o certo. Em CODIGO o alvo vira
+    # texto: `HOOK = r"<CLAUDE>\hooks\x.py"` nao e caminho nenhum, o gate que
+    # o recebe nao reconhece, nao barra, e o teste le VERDE sobre um gate que
+    # nunca foi consultado.
+    #
+    # 🔑 Medido: o teste de uma porta publicada dava 4 falhas de "passou e
+    # nao devia", e a causa era essa. O destilador mede PRIVACIDADE, nao
+    # sanidade — e eu tratei o verde dele como "pronto para publicar".
+    _marc = os.path.join(BANCA, "marcadores")
+    escreve(os.path.join(_marc, "com_defeito.py"),
+            "# um comentario com <PROJETOS>/algo — isto e PROSA, e esta certo"
+            + N + 'ALVO = r"<CLAUDE>' + chr(92) + 'hooks' + chr(92) + 'x.py"'
+            + N)
+    escreve(os.path.join(_marc, "so_prosa.py"),
+            '"""Docstring que cita <CASA> e <PROJETOS> para explicar.' + N
+            + N + 'Continua explicando, e cita <CLAUDE> tambem.' + N + '"""'
+            + N + "x = 1" + N)
+    escreve(os.path.join(_marc, "isento.py"),
+            'PARES = [["origem", "<CASA>"]]' + N)
+    escreve(os.path.join(_marc, "nao_e_py.txt"), "<CLAUDE> aqui" + N)
+
+    _achados = mr.marcador_em_codigo(saida=_marc)
+    _quais = {a[0] for a in _achados}
+    diz("acusa o marcador numa linha de CODIGO",
+        "com_defeito.py" in _quais, str(sorted(_quais)))
+    diz("e diz a LINHA",
+        any(a[0] == "com_defeito.py" and a[1] == 2 for a in _achados),
+        str(_achados))
+    # ⚠️ O lado que impede a checagem de virar pedra: marcador em prosa e o
+    # comportamento CERTO da destilacao. Acusa-lo reprovaria quase todo
+    # arquivo, e e assim que uma checagem morre.
+    diz("NAO acusa marcador em comentario", "com_defeito.py" in _quais
+        and len([a for a in _achados if a[0] == "com_defeito.py"]) == 1,
+        str([a for a in _achados if a[0] == "com_defeito.py"]))
+    diz("NAO acusa marcador em docstring", "so_prosa.py" not in _quais,
+        str(sorted(_quais)))
+    diz("e nao olha arquivo que nao e codigo", "nao_e_py.txt" not in _quais)
+
+    _isento = mr.marcador_em_codigo(
+        saida=_marc, arr={"marcador_isento": {"isento.py": "prova"}})
+    diz("o isento por NOME sai da conta",
+        "isento.py" not in {a[0] for a in _isento},
+        str(sorted({a[0] for a in _isento})))
+    diz("   e o resto continua sendo olhado",
+        "com_defeito.py" in {a[0] for a in _isento})
+
+    # A MUTACAO: sem a lista de marcadores, a checagem fica cega.
+    marc_orig = mr.marcadores
+    try:
+        mr.marcadores = lambda fonte=None: []
+        det = not mr.marcador_em_codigo(saida=_marc)
+    finally:
+        mr.marcadores = marc_orig
+    print("  [%s] sem a lista de marcadores, nada e acusado"
+          % ("DETECTADA" if det else "SOBREVIVEU"))
+    if not det:
+        FALHA += 1
+
     print(N + "== 5. O PAINEL DE FATOS ==")
     escreve(os.path.join(destino2, "README.md"),
             "# titulo" + N + N + "Medido: 1 suítes, 2 checagens, 3 mutações, "

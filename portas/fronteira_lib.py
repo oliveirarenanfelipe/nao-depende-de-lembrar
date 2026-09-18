@@ -2,12 +2,13 @@
 r"""FRONTEIRA_LIB — o UNICO reconhecedor de "de que projeto e este caminho?".
 
 Por que existe
---------------
+---------------------------
 Dois gates precisam da mesma resposta e nao podiam responder cada um do seu
 jeito: `fronteira_de_projeto.py` (Edit|Write) e `bash_na_porta.py` (Bash).
-Duas gramaticas para a mesma identidade sao duas identidades, e isso ja custou
-caro aqui: dois reconhecedores divergiram, e **145 notas de um projeto eram
-estrangeiras dentro do proprio projeto**.
+Duas gramaticas para a mesma identidade e o defeito de
+[[concept_a_identidade_do_registro_tem_de_ser_uma]], e ele ja custou caro aqui:
+em  o `detect_project` e o `project_dir_to_slug` divergiam, e 145 notas do
+um projeto eram estrangeiras dentro dele mesmo.
 
 O QUE ELE NAO FAZ: nao mexe em `memory_lib.PROJECT_MAP`. O proprio
 `fronteira_de_projeto.py` avisa, na linha 49, que mexer no mapa muda como o
@@ -16,28 +17,32 @@ de ir ao `detect_project` — que e exatamente a forma para a qual ele foi feito
 (ele nasceu recebendo o cwd, que e a raiz).
 
 O DEFEITO QUE ISTO CONSERTA `[medido]`
---------------------------------------
-O reconhecedor antigo juntava TODO o caminho com hifen:
+---------------------------------------------
+`detect_project` junta TODO o caminho depois de `Projeto\` com hifen:
 
-    <projetos>\Nome-Do-Projeto             -> nome-do-projeto
-    <projetos>\Nome-Do-Projeto\docs        -> nome-do-projeto-docs   (!)
+    Projeto\Central-Comando-360            -> central-comando-360
+    Projeto\Central-Comando-360\docs       -> central-comando-360-docs   (!)
 
-Quando o projeto esta num mapa conhecido, o casamento por substring salva.
-Quando NAO esta, a subpasta vira outro projeto e o gate barra escrita legitima
-dentro de casa. Medido: **15 dos 33** diretorios sofriam disso.
+Quando o projeto esta no `PROJECT_MAP`, o casamento por substring salva
+(`Personal\_candidaturas` -> `personal`). Quando NAO esta, a subpasta vira outro
+projeto e o gate barra escrita legitima dentro de casa. Medido: **15 dos 33**
+diretorios da pasta dos projetos sofrem disso: todos os que nao tem
+entrada no mapa e carregam subpasta.
 
-Gate que reprova o caso legitimo ensina a contornar o gate. Foi assim que uma
-sessao aprendeu a repetir a gravacao ate passar, e a repeticao virou habito.
+Gate que reprova o caso legitimo ensina a contornar o gate. Foi assim que a
+outra sessao aprendeu a repetir a gravacao ate passar, e a repeticao virou
+habito — o mesmo mecanismo do guard da D27.
 
 Chamadores: `fronteira_de_projeto.py`, `bash_na_porta.py`.
 Teste: `testar_fronteira.py` (o grupo 2b prova o carregamento do `casa.json`)
        e `testar_fronteira_bash.py` (o acoplamento com a porta do Bash).
 
-⚠️ Por muito tempo esta linha citou um arquivo de teste que NUNCA existiu. E o
-mesmo defeito que esta casa ja pegou duas vezes — o rotulo da prova escrito no
-codigo e a prova ausente do disco — e passou despercebido porque esta peca nao
-estava no mapa da maquina: ninguem media se o teste que ela declara existe.
-Peca fora do mapa nao e medida, e nao ser medida le igual a nao existir.
+⚠️ Ate  esta linha dizia `testar_fronteira_lib.py`, e esse arquivo
+NUNCA existiu. E o mesmo defeito que a casa ja pegou duas vezes — o rotulo da
+prova escrito no codigo e a prova ausente do disco — e ele passou despercebido
+porque esta peca nao estava no mapa da maquina: ninguem media se o teste que
+ela declara existe. Peca fora do mapa nao e medida, e nao ser medida le igual
+a nao existir.
 """
 from __future__ import annotations
 
@@ -49,7 +54,7 @@ import tempfile
 
 HOME = os.path.expanduser("~")
 
-# 🔴 ONDE A CASA MORA SAIU DO CODIGO, e o sintoma seria mudo. A regex
+# 🔴 ONDE A CASA MORA SAIU DO CODIGO EM , e o sintoma seria mudo. A regex
 # logo abaixo tinha o nome do usuario do disco escrito dentro dela:
 #
 #     r"(?:Users[\\/]+olive[\\/]+)?"
@@ -92,8 +97,96 @@ def carregar_casa(fonte=None):
 
 RAIZ_PROJ, USUARIO, TRANSVERSAIS = carregar_casa()
 
+
+def carregar_projetos(fonte=None):
+    """[(fragmento, apelido)] — o mapa dos projetos, do disco.
+
+    🔴 ESTA LISTA ESTAVA ESCRITA A MAO EM TRES ARQUIVOS, e as tres divergiram.
+    Medido, com o efeito real e nenhum deles sendo uma quebra:
+
+      · abrindo um projeto de segunda geracao, uma copia resolvia para o
+        apelido da PRIMEIRA geracao, ja aposentada — e a memoria carregada era
+        a de 3 notas em vez da de 43;
+      · para outro projeto, uma copia devolvia um apelido curto e a outra o
+        apelido com a etapa, e so o segundo tem pasta no disco;
+      · oito projetos com memoria nao estavam em copia nenhuma.
+
+    🔑 As duas primeiras RESPONDEM, com o projeto errado. E o modo de falha
+    que esta casa mais paga: o que emudece, nao o que grita.
+
+    ⚠️ Lista vazia e ERRO. Sem o mapa, todo caminho cai no apelido derivado
+    do nome da pasta — o que, dentro de uma SUBPASTA, devolve o nome dela e
+    nao o do projeto. Memoria de projeto inexistente le como projeto sem
+    memoria, e a sessao comeca cega sem avisar.
+    """
+    with io.open(fonte or FONTE_CASA, encoding="utf-8") as fh:
+        crus = (json.load(fh).get("projetos") or [])
+    pares = [(str(a), str(b)) for a, b in crus if a and b]
+    if not pares:
+        raise ValueError(
+            "casa.json sem `projetos`. Sem o mapa, o apelido sai do nome da "
+            "pasta — e numa subpasta isso devolve um projeto que nao existe, "
+            "fazendo a sessao comecar cega sem avisar.")
+    return pares
+
+
+PROJETOS = carregar_projetos()
+
+# O prefixo que o agente usa para nomear a pasta de memoria de um projeto, e o
+# trecho de caminho que marca onde os projetos comecam. Os dois saem do DADO:
+# escritos a mao, carregavam o nome do usuario do disco.
+PREFIXO_MEMORIA = "C--" + os.path.join("Users", USUARIO, os.path.basename(
+    RAIZ_PROJ)).replace(os.sep, "-") + "-"
+# 🔴 DERIVADO DE `RAIZ_PROJ`, NAO REMONTADO. A primeira versao montava
+# `\Users\<usuario>\<pasta>\` a partir dos pedacos — e com isso assumia que a
+# pasta dos projetos mora dentro de `Users`. Numa casa onde ela mora noutro
+# lugar, o trecho nunca casa, o caminho cai no fallback do nome da PASTA, e
+# `Produto\Etapa-Um` devolve `etapa-um` em vez de `produto-etapa-um`.
+#
+# 🔑 O valor ja estava calculado logo acima. Remontar um dado que existe e
+# como copiar uma lista: as duas versoes divergem no primeiro caso que o
+# autor nao imaginou.
+_RAIZ_MINUSCULA = os.path.normcase(RAIZ_PROJ).replace("/", os.sep) + os.sep
+
+
+def apelido_de_base(base):
+    """`Meu-Modulo` -> `meu-modulo`. O UNICO reconhecedor de identidade.
+
+    As duas pontas — a nota, que vem do nome da pasta de memoria, e a busca,
+    que vem do diretorio de trabalho — passam por aqui. Senao viram duas
+    gramaticas para o mesmo projeto, que foi o defeito medido.
+    """
+    for frag, apelido in PROJETOS:
+        if frag.lower() == base.lower() or frag.lower() in base.lower():
+            return apelido
+    return re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
+
+
+def apelido_da_pasta_de_memoria(dirname):
+    """O apelido a partir do nome da pasta de memoria do projeto."""
+    return apelido_de_base(dirname.replace(PREFIXO_MEMORIA, ""))
+
+
+def apelido_do_diretorio(cwd):
+    """O apelido do projeto dono de um diretorio de trabalho.
+
+    ⚠️ A NORMALIZACAO E O PONTO, e foi por falta dela que tres pecas desta
+    casa discordavam. Um caminho com subpasta, casado cru por substring,
+    devolve o apelido do projeto PAI — a entrada no mapa usa hifen e o caminho
+    usa barra. Aqui o trecho depois da pasta dos projetos e normalizado
+    ANTES de procurar, e as duas pontas passam a falar a mesma lingua.
+    """
+    norm = cwd.replace("/", os.sep).rstrip(os.sep)
+    i = norm.lower().find(_RAIZ_MINUSCULA)
+    if i >= 0:
+        resto = norm[i + len(_RAIZ_MINUSCULA):]
+        if resto:
+            return apelido_de_base(resto.replace(os.sep, "-"))
+    base = os.path.basename(norm)
+    return apelido_de_base(base) if base else ""
+
 # Caminho sob a pasta dos projetos em qualquer das grafias que aparecem num
-# comando de shell: caminho Windows com barra invertida ou normal, caminho
+# comando de shell, nas tres grafias que aparecem (Windows, POSIX e Git Bash),
 # `~/<pasta>/...`. O grupo 1 e sempre a pasta-raiz do projeto.
 _P = r"[\w.\-]+"
 
@@ -142,24 +235,24 @@ def dono_de_caminho(caminho: str) -> str:
     A identidade do projeto era DEDUZIDA: `raiz_de_projeto` pega a primeira
     pasta sob `Projeto\\`, e isso errava de tres jeitos diferentes, todos
     medidos no mesmo dia:
-      · uma pasta guarda-chuva com duas etapas dentro: cada etapa e um projeto
-        com contrato, memoria e repo proprios, e as duas viravam o nome do pai
-        — a escrita na propria memoria delas era negada;
+      · as etapas de um mesmo projeto tem contrato, micro mente e repo
+        proprios, e viravam o apelido do PAI — a escrita na propria memoria
+        deles era negada;
       · `Projeto\\new-project.sh` e um ARQUIVO na raiz, e virava um "projeto"
         chamado `new-project-sh` (apanhei disto ao vivo, editando o rito);
-      · um WORKTREE dentro de outro projeto resolvia como o projeto de origem
-        — o gotcha que ja mordeu esta casa duas vezes.
+      · uma pasta de WORKTREE resolvia como o projeto de onde ela saiu —
+        o gotcha que ja mordeu esta casa duas vezes.
 
     A lição veio de fora: um dev descrevendo a arquitetura dele passa
     `tenant_id` como CAMPO, e a casa adivinhava o equivalente a partir de uma
     string de caminho. Campo declarado nao erra de tres jeitos; deducao erra.
-    O campo aqui e a EXISTENCIA do `projeto.yml` — o contrato de partida, que
-    esta commitado em 25 projetos desta casa.
+    O campo aqui e a EXISTENCIA do `projeto.yml` — o contrato de dia zero, que
+    esta commitado em 25 projetos.
 
     🔴 NAO consertei `raiz_de_projeto`, e o motivo e o raio, medido antes: ela
     tem 4 chamadores, e `bash_na_porta.py:306,380` compara o resultado dela com
     `raizes_citadas()` — uma regex que extrai UM nivel. Se `raiz_de_projeto`
-    passasse a devolver o caminho de dois niveis, o par divergiria e a porta
+    passasse a devolver a subpasta, o par divergiria e o `bash_na_porta`
     acusaria escrita em projeto alheio DENTRO do proprio projeto: regressao
     pior que o defeito. Funcao nova deixa aquele par intacto.
 

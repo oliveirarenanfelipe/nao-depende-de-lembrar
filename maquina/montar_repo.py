@@ -61,6 +61,9 @@ except Exception:  # noqa: BLE001,S110 - sem stdout nao ha para onde avisar
     pass
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, AQUI)
+import medir_privacidade as mp  # noqa: E402
+
 SAIDA = os.path.join(AQUI, "publicado")
 ARRANJO = os.path.join(AQUI, "arranjo.json")
 
@@ -138,6 +141,74 @@ def planejar(arr, saida=None):
         else:
             orfaos.append(nome)
     return plano, orfaos
+
+
+# Os marcadores que as trocas mecanicas deixam no lugar de um caminho de
+# disco. Lidos do MESMO dado que os produz, para nao existirem duas listas.
+def marcadores(fonte=None):
+    """Os `<CASA>`, `<CLAUDE>` e afins que a destilacao produz."""
+    with io.open(fonte or mp.FONTE, encoding="utf-8") as fh:
+        pares = (json.load(fh).get("trocas_mecanicas") or [])
+    return sorted({p for _de, p in pares if p.startswith("<")})
+
+
+def marcador_em_codigo(saida=None, fonte=None, arr=None):
+    """Arquivos publicados onde um marcador ficou num lugar EXECUTAVEL.
+
+    🔴 POR QUE ISTO E DEFEITO, e nao estilo. A troca mecanica transforma o
+    caminho de disco num marcador. Em PROSA — comentario, docstring — isso e
+    exatamente o que se quer: o leitor entende `<PROJETOS>/algo` sem saber
+    onde fica a casa de ninguem.
+
+    Em CODIGO nao. `HOOK = r"<CLAUDE>\\hooks\\x.py"` nao e caminho nenhum: o
+    gate que recebe esse alvo nao reconhece, nao barra, e o teste que o usa
+    passa a ler VERDE sobre um gate que nunca foi consultado.
+
+    🔑 Foi medido: o `testar_padroes_na_porta` publicado dava 4 falhas de
+    "passou e nao devia", e a causa era esta — o alvo virou texto. Um teste
+    assim nao acusa o defeito que existe para acusar, e o `--conferir` nao ve
+    nada, porque ele mede PRIVACIDADE, nao sanidade.
+
+    ⚠️ So olha linha de CODIGO: fora de comentario e fora de docstring. O
+    marcador em prosa e o comportamento certo, e acusa-lo faria a checagem
+    reprovar quase todo arquivo — que e como uma checagem morre.
+    """
+    pasta = saida or SAIDA
+    alvos = marcadores(fonte)
+    if not alvos:
+        return []
+    # ⚠️ Isento por NOME, com o motivo no dado. O arquivo isento deixa de ser
+    # olhado INTEIRO, e isso esta dito no `_leia_marcador` do arranjo.
+    isentos = set((arr or {}).get("marcador_isento") or {})
+    achados = []
+    for nome in sorted(os.listdir(pasta)):
+        if not nome.endswith(".py") or nome in isentos:
+            continue
+        caminho = os.path.join(pasta, nome)
+        if not os.path.isfile(caminho):
+            continue
+        texto = io.open(caminho, encoding="utf-8", errors="replace").read()
+        dentro_de_bloco = False
+        for n, linha in enumerate(texto.split(chr(10)), 1):
+            tres = linha.count('"""') + linha.count("'''")
+            # ⚠️ A LINHA QUE ABRE O BLOCO JA E PROSA, e errei nisto na
+            # primeira versao: eu verificava antes de virar a chave, entao um
+            # `"""Docstring com <CASA>"""` na abertura era acusado. O teste
+            # pegou. A chave vira PRIMEIRO, e o que sobra na linha depois das
+            # aspas e o que se olha.
+            abre_ou_fecha = tres % 2
+            if abre_ou_fecha:
+                dentro_de_bloco = not dentro_de_bloco
+            # `tres` PAR e maior que zero e a docstring de uma linha so:
+            # `"""explica <CASA> e fecha."""`. Ela abre e fecha, nao muda a
+            # chave, e e prosa inteira. Sem esta condicao ela era acusada —
+            # e a primeira acusada foi a docstring desta propria funcao.
+            if dentro_de_bloco or tres:
+                continue
+            sem_comentario = linha.split("#")[0]
+            if any(m in sem_comentario for m in alvos):
+                achados.append((nome, n, linha.strip()[:60]))
+    return achados
 
 
 def sem_fonte(arr, saida=None):
@@ -354,7 +425,22 @@ def main():
         print("  origem sao feitas na casa, antes de publicar. Aqui sobra a 3.")
 
     print()
-    print("== 3. o painel de fatos ainda e verdade ==")
+    print("== 3. nenhum marcador de troca ficou em CODIGO ==")
+    marcados = marcador_em_codigo(arr=arr) if tem_origem else []
+    for _nome, _n, _l in marcados:
+        print("  MARCADOR     %-28s L%-4d %s" % (_nome[:28], _n, _l[:38]))
+    if not tem_origem:
+        print("  (nao se aplica: sem `publicado/`, nao ha o que conferir aqui)")
+    elif not marcados:
+        print("  ok — nenhum caminho virou texto no meio do codigo")
+    else:
+        print()
+        print("  O marcador em PROSA e o certo. Em codigo, o alvo vira texto:")
+        print("  o gate que o recebe nao reconhece, nao barra, e o teste le")
+        print("  verde sobre um gate que nunca foi consultado.")
+
+    print()
+    print("== 4. o painel de fatos ainda e verdade ==")
     escrito = painel_atual(base, arr)
     numeros = medir_suites(base)
     medido = linha_de_fatos(numeros)
@@ -373,10 +459,10 @@ def main():
         print("  Regenere com: montar_repo.py --fatos <pasta> --escrever")
 
     print()
-    if orfaos or faltam or not igual:
+    if orfaos or faltam or marcados or not igual:
         print("  REPROVA (1) — o arranjo nao confere.")
         return 1
-    print("  LIMPO (0) — arranjo e painel conferidos.")
+    print("  LIMPO (0) — arranjo, marcadores e painel conferidos.")
     return 0
 
 

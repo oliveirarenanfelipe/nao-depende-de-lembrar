@@ -12,6 +12,13 @@
 maquina/*.json
 portas/*.json
 
+# A EXCECAO, por nome e com o motivo: o catalogo de regras nao e dado desta
+# casa, e o CONTEUDO da porta. Sao 39 regras de construcao, cada uma nascida
+# de um defeito real, com o detector e o conserto dentro. Sem ele a porta
+# instala e nao barra nada — e uma porta que nao barra e pior que porta
+# nenhuma, porque cria a crenca.
+!portas/padroes_casa.json
+
 # O QUE NASCE DE RODAR OS TESTES.
 #
 # Estas linhas nao estavam aqui, e a falta foi medida ao publicar: rodar a suite

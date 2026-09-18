@@ -14,7 +14,6 @@
     "O que nao esta declarado aqui, ou nao casa uma das regras de `por_sufixo`,",
     "faz a montagem REPROVAR dizendo o nome."
   ],
-
   "_leia_renomeados": [
     "Os que mudam de nome ao sair. O sufixo `-do-repo` existe porque em",
     "`publicado/` eles nao podem ter o nome final: um `.gitignore` de verdade",
@@ -32,18 +31,25 @@
     ".github/workflows/release.yml": "release-do-repo.yml",
     ".githooks/pre-commit": "githooks-pre-commit"
   },
-
-  "_leia_raiz": ["Os que sobem na raiz com o mesmo nome."],
-  "na_raiz": [
-    "LICENSE", "README.md", "README.en.md", "SECURITY.md", "CONTRIBUTING.md",
-    "CODE_OF_CONDUCT.md", "CHANGELOG.md", "DECISOES.md"
+  "_leia_raiz": [
+    "Os que sobem na raiz com o mesmo nome."
   ],
-
+  "na_raiz": [
+    "LICENSE",
+    "README.md",
+    "README.en.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "CHANGELOG.md",
+    "DECISOES.md"
+  ],
   "_leia_pasta": [
     "A pasta `github-templates/` vira `.github/`, com a arvore dela inteira."
   ],
-  "pastas": {"github-templates": ".github"},
-
+  "pastas": {
+    "github-templates": ".github"
+  },
   "_leia_sufixo": [
     "As pecas e os dados. O destino sai do NOME, e `portas` lista quem mora",
     "em `portas/` — todo o resto vai para `maquina/`.",
@@ -52,16 +58,30 @@
     "sozinho, e esta casa ja pagou por isso tres vezes."
   ],
   "por_sufixo": {
-    "sufixos": [".py", ".exemplo"],
+    "sufixos": [
+      ".py",
+      ".exemplo",
+      ".json"
+    ],
     "portas": [
-      "bash_na_porta", "catalogo_na_porta", "fundacao_na_porta",
-      "humanizar_na_porta", "seguranca_na_porta", "soberano_na_porta",
-      "seguranca_seeds", "fronteira_lib",
-      "casa.json.exemplo", "seeds_inseguros.json.exemplo"
+      "bash_na_porta",
+      "catalogo_na_porta",
+      "fundacao_na_porta",
+      "humanizar_na_porta",
+      "seguranca_na_porta",
+      "soberano_na_porta",
+      "seguranca_seeds",
+      "fronteira_lib",
+      "casa.json.exemplo",
+      "seeds_inseguros.json.exemplo",
+      "padroes_na_porta",
+      "padroes_casa.json",
+      "calibrar_padroes",
+      "fronteira_de_projeto",
+      "fronteira"
     ],
     "padrao": "maquina"
   },
-
   "_leia_ficam": [
     "O que mora em `publicado/` e NAO sobe — por nome exato e com o motivo.",
     "",
@@ -73,7 +93,6 @@
   "ficam": {
     ".gitignore": "e o gitignore DESTA pasta, que esconde o rascunho e o dado da casa do git interno; o do repositorio publicado e o `gitignore-do-repo`"
   },
-
   "_leia_fatos": [
     "A linha do README que carrega numeros medidos. Ela e RECALCULADA pelo",
     "`montar_repo.py --fatos`, e o `--conferir` REPROVA quando o que esta",
@@ -86,5 +105,25 @@
   "painel_de_fatos": {
     "arquivo": "README.md",
     "prefixo": "Medido: "
+  },
+  "_leia_marcador": [
+    "O arquivo que pode citar MARCADOR em codigo, e o motivo numa linha.",
+    "",
+    "O marcador (<CASA>, <CLAUDE>, <PROJETOS>) e o que a troca mecanica deixa no",
+    "lugar de um caminho de disco. Em prosa isso e o certo. Em codigo e defeito:",
+    "o alvo vira texto, o gate que o recebe nao reconhece, e o teste le VERDE",
+    "sobre um gate que nunca foi consultado.",
+    "",
+    "Medido: o teste da porta dos padroes publicado dava 4 falhas de \"passou e",
+    "nao devia\", e a causa era essa.",
+    "",
+    "⚠️ O QUE ESTA ISENCAO CUSTA, dito na frente: o arquivo isento deixa de ser",
+    "olhado INTEIRO. Se um caminho de verdade virar marcador nele, ninguem pega.",
+    "Ela so se justifica para o teste DO destilador, que precisa citar os",
+    "marcadores porque e ele quem prova que a troca acontece."
+  ],
+  "marcador_isento": {
+    "testar_destilar.py": "e o teste DAS trocas mecanicas: ele cita o marcador como valor esperado, nao como caminho",
+    "testar_montar_repo.py": "e o teste DA checagem de marcador: as amostras dele precisam conter marcador"
   }
 }

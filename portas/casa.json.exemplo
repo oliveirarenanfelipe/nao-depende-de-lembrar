@@ -27,13 +27,73 @@
     "                          desenho, nao invasao, e por isso elas nunca",
     "                          resolvem para um dono. Lista vazia e valida."
   ],
-
   "pasta_dos_projetos": "Projeto",
-
   "usuario_do_disco": "",
-
   "pastas_transversais": [
     "_shared",
     "_comum"
-  ]
+  ],
+  "_leia_projetos": [
+    "O MAPA DOS PROJETOS — de um fragmento de caminho para o apelido curto que",
+    "identifica o projeto na memória.",
+    "",
+    "🔴 ESTA LISTA NÃO PODE FICAR VAZIA. Sem ela, a biblioteca de fronteira",
+    "LEVANTA, e quem depende dela — o gate do Bash e o gate de escrita — NEGA",
+    "tudo. É o lado seguro, e é deliberado: uma fronteira que não sabe de quem",
+    "é cada caminho responde \"não há dono\" para todos, e \"não há dono\" lê como",
+    "\"pode escrever\" em todo chamador.",
+    "",
+    "⚠️ A ORDEM IMPORTA, e é por isso que isto é lista e não dicionário. O",
+    "casamento é por substring, então o fragmento mais específico vem ANTES do",
+    "mais geral: `Site-v2` antes de `Site`, `Canal-2` antes de `Canal`.",
+    "Invertida, a entrada específica nunca é alcançada.",
+    "",
+    "Troque pelos seus projetos. Os abaixo são exemplo da FORMA, não da sua",
+    "casa."
+  ],
+  "projetos": [
+    [
+      "Produto-Etapa-Um",
+      "produto-etapa-um"
+    ],
+    [
+      "Produto-Etapa-Dois",
+      "produto-etapa-dois"
+    ],
+    [
+      "Produto",
+      "produto"
+    ],
+    [
+      "Site-v2",
+      "site-v2"
+    ],
+    [
+      "Site",
+      "site"
+    ],
+    [
+      "Canal-2",
+      "canal-2"
+    ],
+    [
+      "Canal",
+      "canal"
+    ],
+    [
+      "Plataforma",
+      "plataforma"
+    ],
+    [
+      "Pessoal",
+      "pessoal"
+    ]
+  ],
+  "_leia_catalogo": [
+    "Onde mora o catálogo de ferramentas já avaliadas, relativo à sua HOME.",
+    "",
+    "Vazio é uma resposta válida: casa sem catálogo apenas deixa de receber o",
+    "ponteiro. Ao contrário da pasta dos projetos, isto não levanta."
+  ],
+  "catalogo_de_ferramentas": ""
 }

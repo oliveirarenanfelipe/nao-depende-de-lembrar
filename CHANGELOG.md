@@ -7,6 +7,18 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Adicionado
 
+- **as DUAS portas que faltavam**: `padroes_na_porta` (39 regras de construcao,
+  cada uma nascida de um defeito real, com o detector e o conserto dentro) e
+  `fronteira_de_projeto` (impede uma sessao aberta num projeto de escrever no
+  projeto de outro dono). Com o `calibrar_padroes`, que mede se alguma regra
+  nova congela o editor.
+- **`maquina/montar_repo.py` + `arranjo.json`**: monta o repositorio e prova o
+  ARRANJO. Todo arquivo tem destino declarado, todo destino tem fonte, nenhum
+  marcador de troca ficou em codigo, e o painel de fatos do README ainda bate
+  com o que as suites respondem.
+- **as trocas de data como regra**: a data de um incidente e removida por
+  troca mecanica, e o NUMERO que a regra carrega fica. 71 reescritas manuais
+  identicas viraram 14 linhas de dado.
 - **`maquina/antes_de_publicar.py`**: o gate do `push`. Mede as tres
   superficies do que o repositorio vai publicar: o que esta versionado
   (`git ls-files`), o que espera um `git add .` e as mensagens de commit. As

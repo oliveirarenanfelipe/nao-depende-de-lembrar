@@ -1,0 +1,591 @@
+{
+  "_leia": [
+    "As regras de CONSTRUCAO que esta casa pagou para aprender, e que ate ",
+    "viviam so como texto em `_shared/PADROES.md` - o 1o degrau da escada de forca,",
+    "o que vale enquanto alguem lembra de ler. Aqui elas viram porta.",
+    "",
+    "Criterio de entrada, e ele e duro: a regra so entra se uma MAQUINA decidir",
+    "sozinha que foi violada. `Este codigo devia ter teste` e julgamento e fica de",
+    "fora - gate que julga erra, e gate que erra vira ruido.",
+    "",
+    "Cada regra carrega o CONSERTO, nao so o defeito. Gate que aponta o erro sem",
+    "dizer o que fazer custa uma ida ao PADROES.md, e e nessa ida que se desiste.",
+    "",
+    "`escopo` limita o alcance por caminho (regex). Sem escopo, vale para tudo.",
+    "Fonte de cada uma: a ancora `{#...}` no `_shared/PADROES.md`.",
+    "",
+    "`onde` diz em que degrau da escada a regra vive: 'porta' (o gate recusa a",
+    "escrita) ou 'vigia' (a varredura diaria reporta). Default: porta. Regra com",
+    "muito achado legitimo em codigo antigo vira VIGIA - barrar 235 arquivos nao",
+    "conserta nada e faz alguem desligar o gate na primeira semana.",
+    "",
+    "`so_se` e o oposto de `exige`: a regra so vale se o arquivo tiver ESTE sinal.",
+    "Nasceu do guard `__main__` - ela vale para script que MANDA/PUBLICA/APAGA, nao",
+    "para todo script. Sem isso, regra certa vira ruido em centenas de arquivos."
+  ],
+  "hook-stdin-bytes": {
+    "titulo": "Hook lendo stdin pelo locale do Windows - nasce INERTE",
+    "fonte": "_shared/PADROES.md#hook-stdin-bytes",
+    "escopo": "(\\\\|/)\\.claude(\\\\|/)hooks(\\\\|/)",
+    "porque": "O payload chega em utf-8 e o sys.stdin do Windows abre em cp1252 [medido]. O JSON parseia sem erro - o que quebra sao os VALORES: texto com acento volta mojibake, `conteudo.find(old_string)` da -1, `os.path.exists` da False. O hook segue o caminho de 'nao e comigo' e retorna rc=0 sem imprimir nada, que o harness le como APROVACAO. Gate escrito, registrado, executado e inerte, sem uma linha de erro.",
+    "conserto": "ent = json.loads(sys.stdin.buffer.read().decode('utf-8', 'replace'))",
+    "seeds": [
+      "json\\.load\\s*\\(\\s*sys\\.stdin\\s*\\)",
+      "sys\\.stdin\\.read\\s*\\(\\s*\\)(?![^\\n]*buffer)"
+    ],
+    "onde": "porta"
+  },
+  "hook-stdout-utf8": {
+    "titulo": "Hook que imprime sem forcar utf-8 na SAIDA - morre em UnicodeEncodeError",
+    "fonte": "_shared/PADROES.md#hook-windows-utf8",
+    "escopo": "(\\\\|/)\\.claude(\\\\|/)hooks(\\\\|/)",
+    "porque": "O stdout do Windows e cp1252. A mensagem de `deny` com emoji ou acento estoura em UnicodeEncodeError e o hook morre - o commit/edicao passa como se o gate tivesse aprovado. Medido: o hook quebrou no teste E o proprio fallback de erro quebrou junto.",
+    "conserto": "no inicio do main(): try: sys.stdout.reconfigure(encoding='utf-8', errors='replace')\\nexcept Exception: pass",
+    "exige": "sys\\.stdout\\.reconfigure",
+    "seeds": [
+      "print\\s*\\(\\s*json\\.dumps"
+    ],
+    "onde": "porta"
+  },
+  "json-estado-nao-atomico": {
+    "titulo": "JSON de estado escrito sem tmp+replace - perde o arquivo inteiro",
+    "fonte": "_shared/PADROES.md#atomic-json-write",
+    "porque": "Sao DOIS defeitos no mesmo lugar. (1) `open(p,'w')` nao e atomico: leitor concorrente pega JSON parcial. (2) Pior e sem concorrencia nenhuma - `open(p,'w')` TRUNCA ao abrir e so depois codifica; se a codificacao falhar no meio, o arquivo fica com 0 BYTES. Foi assim que o MEMORY.md desta casa zerou duas vezes e .",
+    "conserto": "use a peca da casa: `_shared/estado_atomico.py`.\n    import sys; sys.path.insert(0, '<raiz>/_shared')\n    from estado_atomico import gravar_json, ler_json\n    dados = ler_json(CAMINHO, padrao={})\n    dados['x'] = 1\n    gravar_json(CAMINHO, dados)\nEla grava em BYTES (preserva CRLF e BOM), no mesmo diretorio, com fsync, limpando o temporario em caso de falha e preservando a permissao - os 6 criterios, provados em `_shared/testar_estado_atomico.py` com mutacao. ⚠️ Ela nao e a 30a funcao: a casa tinha 29 implementacoes disso, a melhor cumprindo 4 de 6 `[medido]`, e esta e a eleicao de uma canonica (adaptada de `note_io.py`, eugeniughelbur/obsidian-second-brain, MIT). Se duas maos escrevem no mesmo arquivo (cron + bot, duas sessoes), use `gravar_json_se_intacto`, que RECUSA gravar se alguem mexeu depois da leitura.",
+    "_calibre": [
+      "a 1a versao pegava QUALQUER `open(x.json,'w')` e deu 290 arquivos.",
+      "Escrita nao-atomica de um JSON descartavel (relatorio, cache de uma rodada)",
+      "nao e defeito - o PADROES fala de 'JSON compartilhado por escritor + leitores'.",
+      "Restringido ao nome do ALVO: estado/state/clientes/sessions/alertas/fila/",
+      "index/registry/cache/config/memoria/pendencias. Gate que grita em 290",
+      "arquivos e gate que alguem desliga na primeira semana."
+    ],
+    "seeds": [
+      "(open|io\\.open)\\s*\\([^)]*(estado|state|clientes|sessions|sessoes|alertas|fila|index|registry|registro|memoria|memory|pendencias)[^)]*\\.json[^)]*['\\\"][wa]['\\\"]",
+      "\\b[A-Za-z_]*(ESTADO|STATE|CLIENTES|SESSAO|SESSOES|SESSIONS|ALERTAS|FILA|PENDENC|LEADS|CONTATOS|ENVIAD)[A-Za-z_]*\\s*\\.\\s*write_text\\s*\\(\\s*json\\.dumps",
+      "json\\.dump\\s*\\(\\s*[A-Za-z_][A-Za-z_0-9]*\\s*,\\s*(open|io\\.open)\\s*\\([^)]*(estado|state|clientes|sessions|sessoes|alertas|fila|index|registry|registro|memoria|memory|pendencias)[^)]*\\.json"
+    ],
+    "onde": "vigia",
+    "_porque_vigia": "235 achados em codigo real [medido]. O defeito e verdadeiro - foi assim que o MEMORY.md zerou e mas e divida antiga espalhada, nao erro que esta nascendo agora. Porta para isso seria ruido; a varredura conta e deixa consertar por lote.",
+    "nao_se": "^\\s*(tmp|temp|_tmp|tmp_path|tmpf|destino_tmp)\\b",
+    "calibrado": "22 arquivos [medido]. 🔴 A versao anterior dizia 238, e o numero estava INFLADO por dois defeitos do seed. (a) Ele acusava o PROPRIO CONSERTO: `tmp.write_text(json.dumps(...))` e o passo 1 do padrao atomico, e tres dos criticos acusados estavam certos. (b) O seed `.write_text(json.dumps` pegava qualquer escrita de JSON, inclusive saida de relatorio e resultado de pipeline - que nao e estado, nao se rele e nao perde nada. Com os dois consertos, 238 -> 59, e os 59 sao estado de verdade (`ARQ_ESTADO`, `STATE_FILE`, `CLIENTES_PATH`). ⚠️ O 238 chegou a ser reportado a ele num panorama como 'a premissa mais fraca da casa'. O tamanho da divida estava errado; a existencia dela, nao ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d."
+  },
+  "main-sem-guard": {
+    "titulo": "Script com efeito IRREVERSIVEL chamando main() sem guard",
+    "fonte": "_shared/PADROES.md#guard-main-efeito-irreversivel",
+    "onde": "porta",
+    "porque": "`scripts/enviar-boletim.js` chamava main() no topo do modulo, sem guard. Qualquer `require()`/`import` do arquivo - de um teste, de um script auxiliar, de uma sessao de debug - DISPARAVA o envio real para a lista inteira (178 assinantes). Descoberto ao tentar testar uma funcao interna: o dano acontece ANTES de qualquer linha do teste rodar. Vale para todo script que manda mensagem, cobra, publica, deleta ou faz deploy - os casos da R2.",
+    "conserto": "Python: `if __name__ == \"__main__\": main()`  |  Node: `if (require.main === module) main()` + exportar o que precisa de teste",
+    "so_se": "(?i)(enviar|envio|disparar|publicar|deploy|deletar|apagar|remover|cobran|send_message|sendMessage|\\.post\\(|requests\\.post|fetch\\(|whatsapp|telegram|boletim|email|smtp)",
+    "exige": "(if\\s+__name__\\s*==|require\\.main\\s*===\\s*module|import\\.meta\\.main)",
+    "seeds": [
+      "^main\\s*\\(\\s*\\)\\s*$",
+      "^\\s{0,3}(await\\s+)?main\\s*\\(\\s*\\)[\\s;]*$",
+      "^\\s{0,3}asyncio\\.run\\s*\\(\\s*main\\s*\\(\\s*\\)\\s*\\)[\\s;]*$"
+    ]
+  },
+  "claude-p-sem-allowlist": {
+    "titulo": "`claude -p` em automacao sem --allowedTools: nao roda nada e sai com codigo 0",
+    "fonte": "_shared/PADROES.md#claude-p-allowlist",
+    "onde": "porta",
+    "porque": "Sessao nao-interativa NEGA Bash por politica: o agente responde 'a execucao foi negada pela politica de permissoes' e o processo sai com EXIT 0. A automacao registra sucesso tendo feito nada - falso verde no pior lugar, o do vigia automatico. Validado na triagem diaria da fila de alertas (Operacao-Interna, ).",
+    "conserto": "passar `--allowedTools 'Read,Grep,Glob,Write,Edit,Bash(git log:*),...'` E conferir o ARTEFATO, nunca o exit code: `if (-not (Test-Path $saida)) { exit 1 }`",
+    "exige": "--allowedTools",
+    "seeds": [
+      "(^|\\||&&|;|\\$\\()\\s*claude\\s+(-p|--print)\\b",
+      "(subprocess\\.(run|Popen|call|check_output)|spawn|execFile|execSync)\\s*\\([^)]{0,80}[\\\"']claude[\\\"'][^)]{0,120}[\\\"'](-p|--print)[\\\"']"
+    ],
+    "_calibre": [
+      "a 1a versao pegava `claude -p` em qualquer lugar da linha e deu 30",
+      "arquivos - quase todos `log(f\"Calling claude -p ...\")`, ou seja a MENCAO em",
+      "texto de log, nao a invocacao. Agora exige sinal de execucao de verdade:",
+      "inicio de linha, cano, $(...), subprocess/spawn/exec, ou lista de argumentos.",
+      "E a linha nao pode ser uma chamada de log/print/erro."
+    ],
+    "nao_se": "(?i)\\b(log|print|die|console\\.(log|error)|Error|raise|f\\\"|f')\\s*\\(.{0,40}claude"
+  },
+  "ps1-crlf-bom": {
+    "titulo": "Script .ps1 gravado sem BOM+CRLF - o powershell.exe 5.1 nao le, e o erro aponta a linha ERRADA",
+    "fonte": "_shared/PADROES.md#ps1-crlf-bom",
+    "onde": "porta",
+    "porque": "O powershell.exe 5.1 - o que o Agendador de Tarefas roda - nao reconhece here-string sem CRLF e le UTF-8 sem BOM como ANSI. Juntos produzem erro de sintaxe apontando uma linha muito depois da real (acusou a 221 para um erro na 212). E o pwsh 7 NAO reproduz: o script 'funciona' quando testado pelo caminho errado e falha na tarefa agendada.",
+    "conserto": "gravar em BINARIO com BOM e CRLF - b = texto.encode('utf-8'); b = b'\\xef\\xbb\\xbf' + b; open(p,'wb').write(b.replace(b'\\r\\n',b'\\n').replace(b'\\n',b'\\r\\n')) - e no .gitattributes: *.ps1 text eol=crlf (conferir se um '* text=auto eol=lf' global nao vence e desfaz isso)",
+    "escopo": "\\.ps1$",
+    "nao_tem": "\\A\\ufeff[\\s\\S]*\\r\\n",
+    "so_se": "(@\"|@'|[^\u0000-])",
+    "calibrado": "11 arquivos [medido]. A 1a versao do `so_se` olhava so acento latino-1 e media 5: o `limpar_temp_orfaos.ps1`, que RODA em tarefa agendada diaria, usa em vez disso `—`, `✅` e `🔴` - nenhum deles no intervalo À-ÿ. Um `.ps1` sem BOM com emoji quebra igual, e a regra era cega para ele. Fica em `porta` mesmo acima do teto de 10: estes 11 so barram quando alguem for EDITA-LOS, e nesse momento a recusa e exatamente o que se quer, porque o conserto e regravar o arquivo"
+  },
+  "auth-fail-closed": {
+    "titulo": "Guard de autenticacao condicional ao segredo EXISTIR - sem o segredo, a rota abre",
+    "fonte": "_shared/PADROES.md#auth-fail-closed",
+    "onde": "porta",
+    "porque": "`if (env.SECRET && recebido !== env.SECRET) return 401` le como seguro e nao e: sem o segredo configurado a condicao e falsa e a requisicao PASSA. Basta ninguem criar o secret - ou alguem apaga-lo - para a rota abrir sem erro, log ou alarme. Caso real: 3 rotas do whatsapp-webhook responderam 200 SEM credencial a  [medido ao vivo].",
+    "conserto": "separar em DUAS condicoes, a primeira fechando: if (!env.SECRET) return 403; if (!comparaTempoConstante(recebido, env.SECRET)) return 401. Sem segredo vira indisponibilidade visivel hoje, em vez de porta aberta que ninguem percebe nunca. E guard UNICO no roteador: tres verificacoes espalhadas divergem.",
+    "seeds_bloco": [
+      "if\\s*\\(\\s*(env|process\\.env|c\\.env)\\.[A-Za-z_0-9]*(SECRET|TOKEN|KEY|SENHA|SEGREDO)[A-Za-z_0-9]*\\s*&&[^\\n]{0,140}(401|403|Unauthorized|Forbidden|[Nn].o autorizado)"
+    ],
+    "calibrado": "1 arquivos (o mesmo worker em 3 worktrees) [medido] ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d."
+  },
+  "replace-silencioso": {
+    "titulo": "Editar codigo por script: `str.replace` que nao casa NAO avisa - o arquivo e gravado e a mudanca nunca aconteceu",
+    "fonte": "_shared/PADROES.md#replace-silencioso",
+    "onde": "porta",
+    "porque": "`str.replace` com alvo inexistente devolve a string intacta e nao levanta nada. O script imprime o proprio 'ok', o arquivo e gravado, o commit sai - e a mudanca nao existe. Caso medido (Monitor, ): um replace de bloco de argparse nao casou por indentacao; o script disse 'CLI ligado', os testes passaram, e a flag --descobrir NAO existia - com um workflow ja escrito chamando ela.",
+    "conserto": "prefira o `Edit`, que erra alto quando o alvo nao existe. Se for script mesmo: assert alvo in s, f'alvo nao encontrado: {alvo[:60]!r}' / novo = s.replace(alvo,x,1) / assert novo != s - e conferir pelo EFEITO (--help, releitura do valor, grep no arquivo gravado), nunca pelo print do proprio script.",
+    "seeds_bloco": [
+      "\\.read\\s*\\(\\s*\\)[\\s\\S]{0,300}?\\.replace\\s*\\([\\s\\S]{0,300}?\\.write"
+    ],
+    "exige": "(assert\\s+[^\\n]{0,80}\\bin\\b|\\bnot\\s+in\\b|\\.count\\s*\\(|[!=]=\\s*(original|antes|orig|old|prev|before|_orig)\\b|\\b(original|antes|orig|old|prev|before)\\s*[!=]=)",
+    "calibrado": "2 arquivos [medido], sendo 1 verdadeiro (`n1_apply_training.py:94`, que grava o worker e marca aplicado=True sem conferir) e 1 falso (`gerar-etapas-html.py:79`, onde o `.replace` age no NOME do arquivo e nao no conteudo lido). ⚡ O falso positivo e DELIBERADO, e o preco esta medido: o seed anterior usava backreference para exigir a mesma variavel nas tres pontas, acertava 1 de 1, e custava 147 ms - a regra mais cara das 33, num teto de 150, reprovando o teste quando a maquina apertava. Sem o backreference: 9 ms, 15x mais barato. Reduzir a janela para 200 nao ajudou (145 ms e ZERO achados), o que prova que o custo era o backreference, nao o tamanho da janela. ▶ A troca e 1 falso positivo (custa uma frase minha, uma vez) por 147 ms em TODA edicao de arquivo, para sempre",
+    "so_se": "\\.replace\\s*\\("
+  },
+  "wrangler-secret-echo": {
+    "titulo": "`wrangler secret put` alimentado por `echo` grava um \\n invisivel no segredo",
+    "fonte": "_shared/PADROES.md#wrangler-secret-printf",
+    "onde": "porta",
+    "porque": "`echo` acrescenta quebra de linha, e ela entra no valor do secret. O segredo fica com um caractere a mais que ninguem ve: a comparacao no Worker falha para sempre, e o erro se parece com 'credencial errada' em vez de 'gravacao errada'.",
+    "conserto": "printf '%s' \"$VALOR\" | wrangler secret put NOME - e isso sozinho NAO basta: `printf` conserta a quebra de linha invisivel, nao o valor VAZIO. O par completo e capturar, medir e so entao gravar: SEG=$(printf %s \"$VALOR\" | tr -d '\\r\\n'); if [ ${#SEG} -lt 20 ]; then exit 1; fi; printf %s \"$SEG\" | wrangler secret put NOME. Ver a regra irma `secret-guard-tamanho`.",
+    "seeds": [
+      "echo\\s+[^|]{0,80}\\|\\s*(npx\\s+)?wrangler\\s+secret\\s+put"
+    ],
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido] - nasce preventiva. 🔴 O conserto desta regra foi COMPLETADO: a versao anterior ensinava so o `printf`, e o teste mostrou que esse conserto e barrado pela `secret-guard-tamanho` - regra cujo conserto nao passa pelas outras regras da casa ensina a desligar o gate"
+  },
+  "windows-start-process-nonewwindow": {
+    "titulo": "`Start-Process -NoNewWindow` amarra o processo ao console - quando o shell sai, o filho morre",
+    "fonte": "_shared/PADROES.md#windows-background-process",
+    "onde": "porta",
+    "porque": "O que devia rodar em segundo plano fica preso ao console do shell que o criou. O processo some junto com a janela, sem erro nenhum - o log simplesmente para no meio.",
+    "conserto": "usar `Start-Process -WindowStyle Hidden` (ou o proprio run_in_background da ferramenta), e provar que sobreviveu: fechar o shell e conferir o PID depois.",
+    "escopo": "\\.ps1$",
+    "seeds": [
+      "Start-Process\\b[^\\n]{0,120}-NoNewWindow"
+    ],
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido] - nasce preventiva"
+  },
+  "dia-utc-fatiado": {
+    "titulo": "Agrupar por dia fatiando timestamp UTC (`ts[:10]`) - a noite cai no dia seguinte",
+    "fonte": "_shared/PADROES.md#dia-utc-vs-local",
+    "onde": "porta",
+    "porque": "Log, transcript e API devolvem UTC. `ts[:10]` agrupa pelo dia UTC; aqui e UTC-3, entao o 'dia' vira 21h do dia anterior as 21h. Quem trabalha a noite tem o trabalho contabilizado no dia seguinte. Em  isso deu 149 M de tokens contra 16,7 M do ccusage lendo os MESMOS arquivos - 9x, e o erro nao era de contagem, era de fronteira de dia.",
+    "conserto": "datetime.fromisoformat(ts.replace('Z','+00:00')).astimezone().date().isoformat() - e o filtro por mtime precisa de 1 dia de folga, porque arquivo mexido ontem as 23h UTC ainda tem linha de hoje local.",
+    "seeds": [
+      "\\b(ts|timestamp|created|created_at|criado|iso|data_iso|updated|updated_at)[A-Za-z_0-9]*\\s*\\[\\s*:\\s*10\\s*\\]",
+      "\\b(ts|timestamp|created|created_at|criado|iso|updated|updated_at)[A-Za-z_0-9]*\\.split\\s*\\(\\s*['\\\"]T['\\\"]\\s*\\)\\s*\\[\\s*0\\s*\\]"
+    ],
+    "nao_se": "`[^`]*\\[\\s*:\\s*10\\s*\\]",
+    "calibrado": "1 arquivos (o mesmo rollup em 3 worktrees) [medido]. Dois falsos positivos sairam por filtro: prosa em docstring (nao_se) e o `except ValueError: return ts[:10]` que e o FALLBACK da funcao canonica do proprio PADROES.md - quem ja tem astimezone() ja se defendeu (exige) ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d.",
+    "exige": "astimezone\\s*\\(\\s*\\)"
+  },
+  "python-buffer-log": {
+    "titulo": "Python redirecionado para .log sem `-u` - o log parece travado e o processo esta vivo",
+    "fonte": "_shared/PADROES.md#python-buffer-log",
+    "onde": "porta",
+    "porque": "Quando o stdout nao e um tty, o Python usa buffer de bloco (~8KB): os print() nao aparecem no log em tempo real. O `tail -f` mostra so o que o bash escreveu e parece congelado. Caso real (HUB Setorial, ): o dono da casa abriu tail -f no smoke do coletor e via so o cabecalho do wrapper.",
+    "conserto": "python3 -u no wrapper, ou PYTHONUNBUFFERED=1 no ambiente, ou flush=True nos prints criticos.",
+    "escopo": "\\.sh$",
+    "seeds": [
+      "python3?(\\.exe)?\\s+(?!-u\\b)[^|;&\\n]*\\.py[^|;&\\n]*>>?\\s*[^&\\s|;]*\\.log"
+    ],
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido]. A 1a versao do seed dava 65 - eram `2>&1` de captura em variavel, nao redirect para log: 65 achados FALSOS que o --prova evitou"
+  },
+  "falha-nao-e-vazio": {
+    "titulo": "`catch -> return []` apaga a diferenca entre 'nao ha nada' e 'nao consegui ver'",
+    "fonte": "_shared/PADROES.md#falha-nao-e-vazio",
+    "onde": "vigia",
+    "porque": "Quem consome nao distingue 'nao ha noticia esta semana' de 'a API caiu'. O pipeline segue com dado faltando achando que e o mundo real. E quando a colecao decide QUEM RECEBE mensagem, a lista vazia vira 'ninguem esta no grupo' e o efeito e cobrar o grupo inteiro - tres ocorrencias da mesma classe num unico dia no Fluxo.",
+    "conserto": "devolver o motivo junto com o dado: {ok:false, motivo, dados:null} para falha e {ok:true, dados:[]} para vazio legitimo. Quando a colecao decide envio, o array tem de ser INALCANCAVEL sem olhar o ok (null, nao []), e a rota responde 502, nao 200 com lista vazia.",
+    "seeds_bloco": [
+      "catch\\s*(\\([^)]*\\))?\\s*\\{\\s*(return|resolve\\s*\\()\\s*\\[\\s*\\]",
+      "\\.on\\s*\\(\\s*['\\\"]error['\\\"]\\s*,.{0,40}resolve\\s*\\(\\s*\\[\\s*\\]\\s*\\)",
+      "except[^\\n:]{0,60}:\\s*return\\s*\\[\\s*\\]"
+    ],
+    "calibrado": "32 arquivos [medido] - divida espalhada. Estreitar para 'so o que decide envio' daria 29 e exigiria julgamento que regex nao tem: `so_se` casa 'whatsapp' em qualquer linha de um bot de 2.000 linhas ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d."
+  },
+  "flag-env-valor-invalido": {
+    "titulo": "Flag booleana de env por `== 'true'` - todo valor nao reconhecido vira 'desligado, e ninguem sabe'",
+    "fonte": "_shared/PADROES.md#flag-env-valor-invalido",
+    "onde": "vigia",
+    "porque": "`True`, `yes`, `1`, `on` e ' true ' (com o espaco que o YAML deixa) viram False sem log, sem erro, sem alarme. A feature nasce inerte e o run termina success - entao a prova de que 'esta ligada' e o arquivo de config, que nao e onde ela e lida. No Monitor essa familia repetiu 5 vezes, uma delas com um eval medindo um bot que nao existia.",
+    "conserto": "dicionario de valores aceitos, e valor fora dele ABORTA cedo com alerta: _FLAG={'true':True,'false':False,'':False}; v=_FLAG.get(str(bruto).strip().lower()); if v is None: alertar(...); raise SystemExit(2). Mais um teste que le o YAML de producao e afirma o valor - senao um refactor apaga a linha e a defesa volta a ser inerte.",
+    "seeds": [
+      "getenv\\s*\\([^)]*\\)[^=]{0,40}\\.lower\\s*\\(\\s*\\)\\s*==\\s*[\\\"']true",
+      "environ(\\.get)?\\s*[\\(\\[][^)\\]]*[\\)\\]][^=]{0,40}\\.lower\\s*\\(\\s*\\)\\s*==\\s*[\\\"']true",
+      "process\\.env\\.[A-Za-z_0-9]+\\s*===?\\s*[\\\"']true[\\\"']",
+      "\\benv\\.[A-Za-z_0-9]+\\s*===?\\s*[\\\"']true[\\\"']"
+    ],
+    "calibrado": "55 arquivos [medido] - o idioma padrao da casa inteira. Barrar isso na porta seria desligar o gate ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d."
+  },
+  "cookie-samesite-strict": {
+    "titulo": "Cookie de sessao `SameSite=Strict` - o login some quando a entrada passa por redirect de outro dominio",
+    "fonte": "_shared/PADROES.md#cookie-samesite-redirect",
+    "onde": "vigia",
+    "porque": "O navegador NAO envia cookie Strict numa navegacao top-level vinda de outro site. Com um 301 no caminho de entrada, a sessao 'some' depois do login e o app pede login de novo, em loop. Aconteceu no CRM (monitorpulse -> workers.dev, ) enquanto a area do cliente, que era Lax, funcionava.",
+    "conserto": "cookie de sessao = SameSite=Lax (envia no redirect top-level GET e ainda barra POST cross-site). Strict so quando NAO existe redirect cross-site no fluxo de entrada - e essa parte e julgamento, por isso aqui e vigia e nao porta.",
+    "seeds": [
+      "SameSite\\s*=\\s*Strict"
+    ],
+    "calibrado": "1 arquivo [medido] - fluxo-etapa-tres-lead.js:318"
+  },
+  "waituntil-cf-budget": {
+    "titulo": "Espera longa dentro de Worker Cloudflare - o `waitUntil` morre MUDO por volta dos 12s e o bot emudece",
+    "fonte": "_shared/PADROES.md#waituntil-cf-budget",
+    "onde": "porta",
+    "porque": "Todo trabalho assincrono dentro de ctx.waitUntil() (plano free) e cancelado ~15s depois da resposta HTTP. Um debounce de 30-60s consome o orcamento ANTES do Groq/KV/envio rodarem: o bot fica mudo SEM erro na resposta HTTP - so o `wrangler tail` mostra 'waitUntil() tasks did not complete'. Recorreu em 2 projetos independentes com sintoma identico: Fluxo (DEBOUNCE 15s) e Monitor #193m (DEBOUNCE 30s, bot mudo).",
+    "conserto": "a soma de todos os await/setTimeout dentro do waitUntil tem de dar menos de 12s. Espera de dezenas de segundos NAO cabe no serverless: migrar para um daemon sempre-ligado (VPS http.server + systemd, como o empresa-bot-buffer.service do Monitor), que nao depende da vida do request.",
+    "escopo": "(\\\\|/)(workers?|worker)(\\\\|/)",
+    "seeds": [
+      "setTimeout\\s*\\([^,;]{0,80},\\s*(1[2-9]|[2-9]\\d|\\d{3,})\\s*\\*\\s*1000\\s*\\)",
+      "setTimeout\\s*\\([^,;]{0,80},\\s*(1[2-9]\\d{3}|[2-9]\\d{4,})\\s*\\)",
+      "\\b(DEBOUNCE|BUFFER|ESPERA|DELAY|WAIT)[A-Z_]*\\s*=\\s*(1[2-9]\\d{3}|[2-9]\\d{4,})\\b"
+    ],
+    "calibrado": "0 arquivos, os 3 seeds PROVADOS vivos [medido] - os dois incidentes ( e ) ja foram consertados; a regra nasce impedindo a volta"
+  },
+  "pep668-pip-install": {
+    "titulo": "`pip install` system-wide - bloqueado por PEP 668 no Debian/Ubuntu com Python 3.12",
+    "fonte": "_shared/PADROES.md#pep668-pip-install",
+    "onde": "porta",
+    "porque": "A partir do Python 3.12 em Debian/Ubuntu, instalar pacote no ambiente do sistema e recusado por politica da distro. O script de provisionamento morre na VPS, num ponto que nao aparece em teste local.",
+    "conserto": "venv proprio do projeto (o caminho certo), ou `pip install --break-system-packages` quando for deliberado, ou `--user`. Escolher e declarar - nao deixar o default decidir na VPS.",
+    "escopo": "\\.sh$",
+    "seeds": [
+      "^\\s*(sudo\\s+)?pip3?\\s+install\\s+(?!-)"
+    ],
+    "nao_se": "(--break-system-packages|venv|virtualenv|-r\\s|--user)",
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido] - preventiva"
+  },
+  "modulo-reconfigura-stdout": {
+    "titulo": "Modulo importavel embrulhando `sys.stdout` no nivel de modulo - quem importa nasce mudo",
+    "fonte": "_shared/PADROES.md#modulo-nao-reconfigura-stdout",
+    "onde": "vigia",
+    "porque": "`sys.stdout = io.TextIOWrapper(sys.stdout.buffer, ...)` no nivel de modulo envenena quem importa o arquivo: o segundo TextIOWrapper FECHA o primeiro, e o proximo print morre com 'I/O operation on closed file'. Aconteceu duas vezes no mesmo dia, em dois scripts que importavam um terceiro justamente para NAO duplicar regra - o defeito pune quem faz a coisa certa.",
+    "conserto": "o ajuste de encoding vai DENTRO do main(), que so roda quando o arquivo e o programa; modulo importado herda o stdout de quem chamou. E use `sys.stdout.reconfigure(...)`, que muda o wrapper existente em vez de criar outro sobre o mesmo buffer - assim nao ha o que fechar.",
+    "seeds": [
+      "^sys\\.stdout\\s*=\\s*io\\.TextIOWrapper"
+    ],
+    "calibrado": "104 arquivos [medido , reconferido no relatorio diario]. 🔴 Eu havia registrado 286 aqui, e era MEU ERRO: aquele numero foi medido com DOIS seeds - `io.TextIOWrapper` (106) e `sys.stdout.reconfigure` (180) - e o segundo eu tirei da regra depois, porque `reconfigure` e o CONSERTO, nao o defeito. O numero descrevia uma regra que nao e esta. Pego pelo `[6n]`, que mediu 106 e nao bateu com o campo. [[concept-o-numero-copiado-envelhece-calado]] ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d."
+  },
+  "_descartadas": {
+    "get-default-nao-cobre-none": {
+      "fonte": "_shared/PADROES.md#get-default-nao-cobre-none",
+      "motivo": "960 arquivos [medido] - `.get(chave, default)` e o idioma universal do Python, e a propria regra diz que o conserto (`or`) engole 0 e False legitimos. Decidir se o vazio e invalido AQUI e julgamento, e gate que julga erra. Fica no PADROES.md como texto, que e o degrau certo para ela."
+    },
+    "replace-silencioso-amplo": {
+      "fonte": "_shared/PADROES.md#replace-silencioso",
+      "motivo": "a forma ampla (`x = x.replace(`) dava 66 arquivos com 0 de precisao - era templating de HTML e limpeza de string. So a forma do CICLO INTEIRO (ler arquivo -> replace -> gravar) tem precisao, e e essa que virou a regra `replace-silencioso`."
+    },
+    "flag-env-como-porta": {
+      "fonte": "_shared/PADROES.md#flag-env-valor-invalido",
+      "motivo": "140 arquivos. Estreitar por nome de flag (GATE/DRY_RUN/ENABLED) so tirou 12, porque `so_se` olha o arquivo inteiro. Virou `vigia`."
+    },
+    "falha-nao-e-vazio-como-porta": {
+      "fonte": "_shared/PADROES.md#falha-nao-e-vazio",
+      "motivo": "49 arquivos. A variante cara (a colecao que decide QUEM recebe mensagem) daria 29, mas separa-la exige julgamento: `so_se` casa 'whatsapp' em qualquer linha de um bot de 2.000 linhas. Virou `vigia`."
+    },
+    "cookie-samesite-como-porta": {
+      "fonte": "_shared/PADROES.md#cookie-samesite-redirect",
+      "motivo": "1 arquivo, mas `SameSite=Strict` so e defeito quando existe redirect cross-site no fluxo de entrada - e isso o regex nao ve. Virou `vigia`."
+    },
+    "_leia": "Regras do PADROES.md que EU avaliei e NAO viraram gate, com o numero que decidiu. Existe para que a proxima mineracao nao reavalie as mesmas e nao chegue a conclusao oposta sem saber. Regra 5 do soberano: nao existe 'aprovado, a adotar'.",
+    "loop-envio-blindado": {
+      "fonte": "_shared/PADROES.md#loop-envio-blindado",
+      "motivo": "regra excelente (6 clientes ficaram sem o resumo diario porque uma excecao abortou o `for` na posicao 16), mas 'o corpo do loop tem try?' e pergunta ESTRUTURAL: o unico seed que a expressa precisa de quantificador aninhado (`(?:[ \t]+(?!try\b)[^\n]*\n){0,6}`) e esse padrao NAO TERMINOU em 60 s sobre 40 KB do `monitor_empresa.py` [medido , tres vezes]. Fica para quando o motor souber ler AST de Python - e ai ela e das primeiras."
+    },
+    "vps-env-dollar": {
+      "fonte": "_shared/PADROES.md#vps-env-dollar",
+      "motivo": "o defeito mora no CONTEUDO do `.env` (valor comecando com `$` ou com espaco, sem aspas simples), e `.env` nao e extensao de codigo - o gate nao alcanca. O seed que mede o codigo que ESCREVE o .env deu 1 achado e era falso positivo (`TOTAL_KITS=$TOTAL_KITS`, um numero em arquivo temporario) [medido]. Regra de operacao de VPS, nao de codigo."
+    },
+    "table-name-string-typo": {
+      "fonte": "_shared/PADROES.md#table-name-string-typo",
+      "motivo": "a regra e uma HEURISTICA - 'quando entidade critica aparece como string em 3+ lugares, promover a constante'. Contar ocorrencias de uma string pelo projeto nao e decidivel no instante da escrita de um arquivo, que e o que a porta ve. Seria vigia com varredura cruzada, e ai o alvo e o `_MOC`/inventario, nao este gate."
+    },
+    "guard-autorizacao-fonte-unica": {
+      "fonte": "_shared/PADROES.md#guard-autorizacao-fonte-unica",
+      "motivo": "regra excelente e de altissimo risco (um endpoint nascido sem guard deixou qualquer usuario autenticado pegar documento de outro por id e disparar no WhatsApp), mas o que ela pede e ESTRUTURAL: 'toda procedure do grupo chama a regua'. Isso e uma pergunta sobre o conjunto de handlers, nao sobre o arquivo que esta sendo escrito. O sinal detectavel - allowlist de papel inline - deu 19 arquivos [medido] e e o idioma do Empresa Platform, que tem disciplina propria (`REGRAS.md`) e dono compartilhado. O mecanismo certo ja esta escrito na propria regra: um TESTE que le o arquivo, no repo dele. Nao e deste gate."
+    },
+    "marcador-de-prova-ascii": {
+      "fonte": "_shared/PADROES.md#marcador-de-prova-ascii",
+      "motivo": "o defeito e acento viajando num input de CLI (`gh workflow run -f \"marcadores=...\"`), que e o MESMO cano ja fechado pelo 4o eixo do `bash_na_porta` (`heredoc_com_acento` + `busca_com_acento`). O alvo restante sao arquivos `.yml` de workflow, fora do escopo deste gate. ⚠️ E a 1a calibragem saiu INVALIDA porque minha prova nao tinha acento: o seed exigia nao-ASCII e a prova era ASCII pura. O `--prova` pegou."
+    },
+    "sinal-negativo-apagado": {
+      "fonte": "_shared/PADROES.md#sinal-negativo-apagado",
+      "motivo": "21 arquivos [medido], e uma lista com `('nao tenho interesse', 3)` so e DEFEITO se o normalizador podar os tokens negados antes de procurar - o que depende do pipeline, nao da linha. Gate que julga erra. O mecanismo certo ja existe e esta escrito na propria regra: `scripts/medir_tokens_negados.py`, que roda cada sinal contra a propria frase que o originou. Isso e teste no projeto dono, nao porta de escrita."
+    },
+    "proxy-descarta-parametro-novo": {
+      "fonte": "_shared/PADROES.md#proxy-descarta-parametro-novo",
+      "motivo": "o defeito e um parametro que atravessa fronteira (proxy/worker/fila/RPC) e some num salto. A pergunta e sobre a CADEIA - quem le, quem repassa, quem usa - e nao sobre o arquivo em edicao. A propria regra ja nomeia o mecanismo certo, e ele nao e gate: teste NA FRONTEIRA (le o parametro E ele entra na URL de saida), mais o detector barato de 'resposta uniforme onde se espera variedade'."
+    },
+    "whatsapp-anti-loop": {
+      "fonte": "_shared/PADROES.md#whatsapp-anti-loop",
+      "motivo": "o defeito e um webhook que despacha sem throttle por numero, e isso e estrutural: a pergunta e se EXISTE um guard antes do despacho, nao se uma linha esta errada. O seed que tentei (`remoteJid` seguido de despacho, sem throttle) deu 1 achado e era FALSO POSITIVO - um simulador de teste (`simular_exame.mjs`), nao um webhook de producao [medido]."
+    },
+    "wrangler-deploy-sem-config-amplo": {
+      "fonte": "_shared/PADROES.md#wrangler-config-bindings",
+      "motivo": "a forma ampla (`wrangler deploy` sem `--config`) dava 1 achado FALSO: o `Empresa-Site-v2/workers/vigia-site/` tem o TOML com o nome padrao `wrangler.toml`, e nesse caso a auto-deteccao funciona. So a forma com `--name` entrou, como `wrangler-deploy-name-sem-config`."
+    },
+    "git-add-tudo-sem-caminho": {
+      "fonte": "_shared/PADROES.md#git-add-isolado",
+      "motivo": "2 arquivos [medido] e os DOIS são legítimos — a casa não tem este defeito. `new-project.sh:237` faz `git add -A` num repositório que ACABOU de ser criado, onde não existe nada mais para estagiar, e `_shared/wiki_codigo_teste.sh:9` monta um repo descartável de teste. O seed largo (`git add -A|--all|.`) dava 4, e os outros 2 eram pior: uma linha de PROSA citando a própria regra (`chamados_reconciliar.py:644`) e um `git add -A drafts/`, que tem caminho e portanto já é limitado. Separar `repo recém-criado` de `repo compartilhado onde o staging anterior persiste` exige saber o estado do índice naquele instante — o regex não vê, e gate que julga erra. Fica no `PADROES.md` como texto, que é o degrau certo para ela."
+    },
+    "workflow-dispatch-required-true": {
+      "fonte": "_shared/PADROES.md#workflow-dispatch-required",
+      "motivo": "32 arquivos [medido] sobre alcance de 480, e `required: true` **não é defeito por si**: em `check-lead-state.yml` ou `kv-apagar-lead.yml` o campo obrigatório é exatamente o certo. O defeito da regra é mais estreito — input obrigatório cujo DISPARADOR manda `|| ''`, e aí o 422 do GitHub vira 5xx calado para quem chamou. Decidir isso exige olhar o disparador, que mora em outro arquivo e às vezes em outro repo. Gate que julga erra. Fica no `PADROES.md` como texto."
+    },
+    "requests-sem-timeout": {
+      "fonte": "_shared/PADROES.md#http",
+      "motivo": "21 arquivos [medido] e a maioria eram FALSOS: o seed usava lookahead negativo (`(?:(?!timeout)[^)])*`) para dizer 'chamada sem timeout', e ele quebra em chamada com parênteses aninhados ou quebrada em várias linhas — acusou `requests.get(..., timeout=10)` que tem o timeout logo ali. Perguntar 'falta um argumento nesta chamada' é pergunta de ÁRVORE (AST), não de linha; o único regex que tentaria isso direito é do tipo que congela o gate. Mesma família do `loop-envio-blindado`. Volta quando o motor souber ler AST."
+    },
+    "except-pass-mudo": {
+      "fonte": "_shared/PADROES.md#http",
+      "motivo": "299 arquivos [medido] — arqueologia, não erro nascendo. E boa parte é legítima: `except ImportError: pass` para dependência opcional, `except OSError: pass` ao limpar temporário. Separar 'engoliu erro que importava' de 'ignorou o que não importava' exige saber o que a exceção significava naquele ponto — julgamento puro. Barrar 299 não conserta nenhum e ensina a desligar o gate na primeira semana."
+    }
+  },
+  "flag-pos-efeito-colateral": {
+    "titulo": "Flag de idempotencia setada DEPOIS do envio e nunca salva - o cron de fallback reenvia ao cliente",
+    "fonte": "_shared/PADROES.md#flag-pos-efeito-colateral",
+    "onde": "porta",
+    "porque": "O codigo salva o estado, manda a mensagem, e entao seta `d0_enviado=True` numa variavel local - **sem regravar**. A flag fica None/False no arquivo e o cron de fallback manda de novo. Caso real (Monitor, , `vincular_unit_id.py:513+`): o Uelson recebeu o D0 duplicado e a Neusa ficou com `d0_enviado=None`. O estrago cresce com o tamanho da lista, e quem paga e o cliente.",
+    "conserto": "a flag de 'ja fiz X' so pode ser persistida DEPOIS de X acontecer, e condicionada ao sucesso: ok = send_whatsapp(...) / cliente['d0_enviado'] = bool(ok) / salvar_clientes(clientes)  # 2o save, COM a flag",
+    "seeds_bloco": [
+      "salvar_\\w+\\s*\\([^\\n]{0,60}\\)[\\s\\S]{0,300}?(send_whatsapp|enviar_mensagem|enviar_whatsapp)\\s*\\([^\\n]{0,90}\\)[\\s\\S]{0,200}?\\[[^\\]]{0,30}(enviado|enviada|notificado|avisado)[^\\]]{0,20}\\]\\s*=(?![\\s\\S]{0,300}salvar_\\w+\\s*\\()"
+    ],
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido] - o incidente foi consertado; a regra nasce impedindo a volta. A forma AMPLA (`salvar_` antes de `send_`) dava 3 e era falso positivo: `dispatcher.py:2035` salva SESSAO de conversa antes de enviar, e isso e correto - se salvasse depois, corria com a resposta do cliente"
+  },
+  "secret-guard-tamanho": {
+    "titulo": "Segredo canalizado direto para `gh secret set` / `wrangler secret put` - leitura vazia grava segredo VAZIO",
+    "fonte": "_shared/PADROES.md#secret-guard-tamanho",
+    "onde": "porta",
+    "porque": "O gravador aceita stdin vazio sem reclamar. Se a leitura devolve nada - pid que mudou, arquivo que sumiu, comando que falhou - o segredo passa a existir com valor vazio, o NOME aparece na listagem, e parece feito. A falha so aparece no dia em que alguem autentica, como 401. Aconteceu (Monitor): pid fixo do daemon, a outra sessao o reiniciou, `/proc/<pid>/environ` nao existia mais, e o `gh secret set` gravou em branco.",
+    "conserto": "nunca canalizar direto - capturar, MEDIR e abortar antes de gravar: SEG=$(...leitura... | tr -d '\\r\\n'); if [ ${#SEG} -lt 20 ]; then exit 1; fi; printf %s \"$SEG\" | gh secret set NOME. Imprimir tamanho e impressao digital curta, nunca o valor. E depois provar de fora: chamar a rota com payload invalido - 400 = credencial passou, 401 = segredo dessincronizado.",
+    "seeds": [
+      "\\|\\s*(gh\\s+secret\\s+set|(npx\\s+)?wrangler\\s+secret\\s+put)\\b"
+    ],
+    "exige": "(\\$\\{#[A-Za-z_]|len\\s*\\(|\\.length\\s*<|wc\\s+-c|-lt\\s+[0-9])",
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido] - preventiva. Irma do `wrangler-secret-echo`, que pega a quebra de linha; esta pega o valor VAZIO. ⚠️ Sem o `nao_se` de crase ela achava 1 em `setup-linha-secret.yml:51`, e era uma MENSAGEM ensinando o comando (com o comando entre crases de markdown), nao o comando executado - mesma familia dos 30 `claude -p` que eram texto de log. O achado so apareceu quando a varredura passou a enxergar `.github`, que a poda de diretorios ocultos vinha cortando",
+    "nao_se": "`"
+  },
+  "evolution-payload-v1": {
+    "titulo": "API de mensageria `sendText` no payload v1 (`textMessage`) - rejeitado pela versao atual, e o bot fica MUDO sem erro",
+    "fonte": "_shared/PADROES.md#evolution-payload-v2",
+    "onde": "porta",
+    "porque": "A Evolution mudou o corpo do `sendText`. O formato v1 `{number, textMessage:{text}}` e rejeitado: `res.ok` vem false, a mensagem nunca chega, e o fluxo SEGUE - nao levanta excecao. O sintoma e 'bot mudo' sem erro visivel. Caso real (Monitor, ): o `whatsapp-router.js` enviava em v1 e o bot comercial nunca entregava, enquanto o `solarview-keeper.js` entregava por usar v2.",
+    "conserto": "body: JSON.stringify({ number, text }). Na duvida, conferir contra um Worker que comprovadamente entrega.",
+    "seeds": [
+      "textMessage\\s*:"
+    ],
+    "calibrado": "1 arquivo [medido] - vault-captura/_inbox/_work/c4_phella/src/services/evolutionApiService.ts:194, que usa o formato v1"
+  },
+  "normalizacao-de-um-lado-so": {
+    "titulo": "Normalizar um lado da comparacao e casar contra literal cru - a troca nunca acontece e nao loga",
+    "fonte": "_shared/PADROES.md#normalizacao-de-um-lado-so",
+    "onde": "porta",
+    "porque": "Comparar `normalizar(dado)` contra um valor escrito a mao num JSON ou literal faz a troca nunca casar. Nao da erro, e o log costuma sair so no caminho de sucesso - entao o silencio parece 'nao havia o que trocar'. `[medido , Fluxo Etapa-Tres]`: a correcao de legenda comparava `limpar(palavra)` (que baixa a caixa) contra \"60 GB\" escrito no JSON, nunca casou, e o video foi ao ar com GB queimado na tela num video sobre GIGAWATT. As tres correcoes anteriores escondiam o defeito por acaso: todas ja eram minusculas.",
+    "conserto": "normalizar OS DOIS LADOS ou nenhum - `a = [limpar(x) for x in erra.split()]`. E quando so o caminho de sucesso loga, CONTAR as trocas e reportar as que nao acharam alvo: senao '0 trocas' e '0 alvos' ficam indistinguiveis.",
+    "seeds": [
+      "\\b(limpar|normalizar|normalize|slugify|canonical|padroniza)\\w*\\s*\\([^)]{1,60}\\)\\s*==\\s*[\\\"']"
+    ],
+    "nao_se": "\\b(assert|expect|test|it\\()",
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido]. Sem o `nao_se` dava 1, e era um `assert` de teste da propria normalizacao - uso legitimo"
+  },
+  "ffmpeg-shortest-com-copy": {
+    "titulo": "`-shortest` junto com `-c:v copy` CORTA o audio - e o container declara a duracao certa",
+    "fonte": "_shared/PADROES.md#ffmpeg-shortest-corta-audio",
+    "onde": "porta",
+    "porque": "O video copiado e escrito quase instantaneamente, o `-shortest` ve esse stream terminar e corta o outro. E uma CORRIDA, nao-deterministica: num lote de 15 arquivos, 6 sairam com exatamente 2,92 s de audio faltando no fim e 9 sairam inteiros, sem relacao com duracao ou tamanho. 🔴 E passa por gate: `ffprobe format=duration` reporta o stream de VIDEO (diferenca medida de 2 ms), o LUFS integrado e MEDIA (3 s mudos em 36 s nao movem o numero), e a sincronia por correlacao media aos 3 s do comeco enquanto o buraco estava no fim. Tres verificacoes verdes num arquivo com 3 s de silencio.",
+    "conserto": "tirar o `apad` e o `-shortest`. O `apad` so existia para repor os ~18 ms que o `atrim` corta do comeco - trocar 18 ms de perda por 2,92 s de risco e pessimo negocio. E medir CONTEUDO, nao continente: decodificar para s16le e comparar a contagem de amostras do original com a do tratado; perda > 0,15 s REPROVA o arquivo (renomeia para .REPROVADO), nao avisa.",
+    "seeds_bloco": [
+      "-c:v[^\\n]{0,20}copy[\\s\\S]{0,220}?-shortest",
+      "-shortest[\\s\\S]{0,220}?-c:v[^\\n]{0,20}copy"
+    ],
+    "calibrado": "5 arquivos [medido], os dois seeds PROVADOS vivos (a prova tem as duas ordens): preparar_fotos.py x2, render-f1.ps1, fazer-card-final.py, render-video.py. O seed amplo (so `shortest`) dava 15 e pegava uso legitimo sem `-c:v copy` - e o par que e o defeito"
+  },
+  "worktree-basename-raiz": {
+    "titulo": "Identidade do projeto tirada do `basename` da raiz do git - muda de nome dentro de um worktree",
+    "fonte": "_shared/PADROES.md#worktree-basename-raiz",
+    "onde": "porta",
+    "porque": "Gerador, linter ou relatorio que se nomeia por `basename(raiz)`, com a raiz vinda de `git rev-parse --show-toplevel`, passa a escrever o nome do WORKTREE quando o commit sai de la. No Monitor o `MAPA_DADOS_AUTO.md` alternava entre `— Monitor` e `— monitor-wt` a cada commit de uma sessao ou da outra, virando ruido permanente no diff. ⚠️ O `--show-toplevel` NAO resolve, ele E a causa: dentro de um worktree ele devolve o proprio worktree `[medido]`.",
+    "conserto": "quem aponta o repositorio principal e o `--git-common-dir`. Detectar worktree linkado comparando `--git-dir` com `--git-common-dir` (num repo normal os dois sao iguais) e gerar o artefato SO no principal, com fail-safe para o comportamento antigo se o `git rev-parse` nao responder. E corrigir so o NOME costuma nao bastar: se o artefato e uma fotografia da arvore, o conteudo diverge junto, porque as arvores estao em commits diferentes.",
+    "seeds_bloco": [
+      "show-toplevel[\\s\\S]{0,300}?basename",
+      "basename[\\s\\S]{0,300}?show-toplevel"
+    ],
+    "calibrado": "0 arquivos, os 2 seeds PROVADOS vivos (prova com as duas ordens) [medido] - o caso que originou a regra foi consertado no `_shared/hooks/pre-commit`; a regra nasce impedindo a volta nos 9 repos que usam `core.hooksPath=_shared/hooks`"
+  },
+  "busca-pdf-sem-normalizar": {
+    "titulo": "Buscar frase em texto extraido de PDF sem normalizar `\\s+` - o falso negativo e a regra, nao a excecao",
+    "fonte": "_shared/PADROES.md#busca-pdf-normalizar",
+    "onde": "vigia",
+    "porque": "A extracao quebra a linha onde o layout quebrava, entao \"fonte calibrada\" vira \"fonte\\ncalibrada\" e a busca literal NAO acha. Em  isso me fez afirmar DUAS VEZES que uma citacao nao existia no manual do equipamento. Ela existia, verbatim, e a peca que ia ao Tribunal foi discutida com base numa medicao falsa minha. Mesma familia do grep com acento: o instrumento responde 'nao existe' para o que existe.",
+    "conserto": "normalizar ANTES de procurar, e procurar por trecho CURTO - nunca pela frase inteira que eu mesmo digitei, porque um ponto final a mais ja faz o `re.escape` nao casar: norm = re.sub(r\"\\s+\", \" \", texto); achou = re.findall(re.escape(trecho_curto), norm, re.I). No `.docx` e pior: a extracao dos `<w:t>` concatena SEM separador, entao fim de paragrafo e borda de celula colam duas palavras (`/2026prezado`).",
+    "seeds_bloco": [
+      "extract_text\\s*\\([\\s\\S]{0,300}?(\\bin\\s+\\w*texto|re\\.(search|findall)\\s*\\()"
+    ],
+    "exige": "sub\\s*\\(\\s*r?[\\\"']\\\\s\\+",
+    "calibrado": "6 arquivos [medido]. Fica em `vigia` e nao em `porta` por uma diferenca em relacao ao `ps1-crlf-bom`, que ficou em porta com 11: la a recusa acontecia no ato de regravar o arquivo, que E o conserto; aqui eu seria barrado ao editar um parser de fatura por outro motivo, e obrigado a consertar algo nao relacionado ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d."
+  },
+  "git-status-como-prova-de-nao-rodou": {
+    "titulo": "`git status` limpo usado como prova de que um gerador NAO rodou - ele nao distingue 'nao escreveu' de 'escreveu igual'",
+    "fonte": "_shared/PADROES.md#git-status-nao-ve-reescrita",
+    "onde": "porta",
+    "porque": "Para provar que uma etapa foi PULADA, `git status` limpo e resposta ambigua: nao separa 'nao escreveu' de 'escreveu exatamente o mesmo conteudo'. Le-lo como prova produz falso negativo - o instrumento classico que nao sabe achar o positivo, mesma familia do `0 achados` que nao distingue casa limpa de detector morto.",
+    "conserto": "comparar `stat -c %y <arquivo>` (ou `os.path.getmtime`) antes e depois, e PROVAR O INSTRUMENTO NO CASO POSITIVO primeiro: num cenario em que o gerador DEVE rodar, o mtime tem de mudar. So entao o mtime imutavel no cenario-alvo vale como prova.",
+    "seeds_bloco": [
+      "git[^\\n]{0,30}status[^\\n]{0,40}porcelain[\\s\\S]{0,200}?(==\\s*[\\\"']{2}|strip\\(\\)\\s*==|not\\s+\\w+\\.stdout|len\\([^)]*\\)\\s*==\\s*0)"
+    ],
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido] - preventiva"
+  },
+  "instalador-sobrescreve-sem-conferir": {
+    "titulo": "Instalador reescreve arquivo de PRODUCAO sem olhar o que estava la - hotfix aplicado na maquina some em silencio",
+    "fonte": "_shared/PADROES.md#instalador-confere-antes",
+    "onde": "vigia",
+    "porque": "`cat > /opt/servico.sh << EOF` reescreve sem comparar. Se alguem aplicou um hotfix direto na maquina e ele nunca voltou ao repositorio, reinstalar APAGA em silencio, e ninguem percebe ate o comportamento antigo sumir. 🔑 E o risco tem um segundo modo de falha, pior: virar BLOQUEIO IMAGINARIO. No Monitor ele estava escrito no codigo como motivo para nao ligar duas frentes de vigilancia, declarado e NUNCA medido; quando enfim foi medido, os arquivos eram IDENTICOS ao que o instalador gera - o bloqueio nao existia e uma frente ficou parada por causa dele.",
+    "conserto": "o instalador extrai o que vai gerar, compara com o que esta instalado e ABORTA se divergir, com `--forcar` para descartar de proposito. Bloqueia, nao avisa. E a regra dos dois lados: um risco so e bloqueio DEPOIS de medido; antes disso e hipotese, e o proximo passo e medir.",
+    "escopo": "\\.sh$",
+    "seeds": [
+      "cat\\s*>\\s*/(opt|etc|srv|usr/local)/"
+    ],
+    "exige": "(comparar|--forcar|diff\\s|cmp\\s|sha256sum)",
+    "calibrado": "9 arquivos [medido , sem cópias de worktree]. 🔴 O número anterior era 25, e a justificativa do degrau era literalmente *\"é vigia porque barrar 25 não conserta nenhum\"* — apoiada num número que o instrumento inflava contando o mesmo arquivo uma vez por worktree. Com 9 ela caberia em `porta` pelo teto, e mesmo assim FICA EM VIGIA, por outro motivo: os 9 são instaladores ANTIGOS (`cat >` sobre arquivo existente), 8 deles em `Monitor/scripts/vps/` — é dívida velha e de outro dono, não erro nascendo, e quem editasse um deles por outra razão seria barrado e obrigado a consertar coisa não relacionada. É a mesma objeção já escrita na `busca-pdf-sem-normalizar`. O teto de 10 é régua, não lei — nos dois sentidos."
+  },
+  "varre-a-pasta-onde-escreve": {
+    "titulo": "Busca de insumo na MESMA pasta onde grava - a 2a execucao come o proprio produto",
+    "fonte": "_shared/PADROES.md#busca-exclui-saida",
+    "onde": "vigia",
+    "porque": "Na 1a rodada o arquivo de saida ainda nao existe quando a busca roda, entao o teste de UMA execucao passa e o defeito so aparece em producao, na segunda vez. Tres casos no mesmo dia (Docs-Concessionaria, ), e o 1o e o que assusta: a busca do anexo de identidade do proprietario capturou o `Anexo 13 - Documento_de_Identificacao_Responsavel_Tecnico_um colega.pdf` recem-gerado - **o documento do engenheiro foi para o anexo do proprietario da UC**, byte a byte, num documento que iria a concessionaria.",
+    "conserto": "a funcao de busca RECEBE a pasta de saida e a ignora (`ignorar_dir`), ou filtra pela marca que o proprio passo poe no nome (`if MARCA_SAIDA not in p.name`). Mais um guard de identidade: se o produto sair identico a outra saida conhecida (hash), recusa e marca pendente. Idempotencia: rodar duas vezes tem de dar o mesmo resultado. ⚠️ as duas defesas sao redundantes, e a prova de reversao so acusa com UM TESTE POR CAMADA.",
+    "seeds_bloco": [
+      "([A-Z_]{3,})\\s*[/.]\\s*(glob|rglob|iterdir)\\s*\\([\\s\\S]{0,400}?\\1\\s*/"
+    ],
+    "calibrado": "4 arquivos [medido]. Fica em vigia e nao em porta porque ler e escrever na mesma pasta so e DEFEITO quando o padrao da busca alcanca o nome do produto - comparar os dois padroes e julgamento, e gate que julga erra"
+  },
+  "crase-em-comentario-de-worker": {
+    "titulo": "Crase dentro de comentario NO MEIO do template HTML de um Worker - fecha o template e some com metade do app",
+    "fonte": "_shared/PADROES.md#js-embutido-worker",
+    "onde": "porta",
+    "porque": "O app do CRM vive num template literal de ~190 KB. Uma crase nao escapada EM QUALQUER LUGAR - inclusive num `//` comentario meu - fecha o template ali, e todo o HTML dali para baixo some do que e servido. O navegador nao acusa: a pagina carrega pela metade. E `node --check` PASSA, porque o arquivo do Worker continua sintaticamente valido. Aconteceu 3x no mesmo dia: template de 187 caiu para 132 KB, com o app inteiro fora do HTML servido.",
+    "conserto": "dentro do template, nunca crase fora de template literal - nem em prosa de comentario. Escrever `saveCliente` sem as crases. E um validador que mede o TAMANHO do template e exige >= 1 bloco `<script>`: a 1a versao do validador disse OK com o template quebrado porque encontrou ZERO blocos, e zero blocos da zero erros - instrumento que nao acha o positivo nao pode aprovar. Calibrar recolocando a crase e exigindo que ele REPROVE.",
+    "calibrado": "0 arquivos, seed PROVADO vivo [medido] - preventiva. 🔴 A 1a versao desta regra tinha 4 FALSOS POSITIVOS e so apareceram quando o gate passou a olhar `.yml` e eu reconferi o placar. O seed era `^\\s*//[^\\n]*\\`` com `so_se` de `<!DOCTYPE`, e o `so_se` apenas diz que o ARQUIVO tem HTML em algum lugar - nao que o comentario esta DENTRO do template. No `empresapulse-crm.js` o comentario acusado esta na linha 50, num array de campos, e o 1o template so comeca na 543. ⚠️ E a calibragem que aprovou aquela versao estava INVALIDA por erro meu de escape no shell: o escopo virou `(\\|/)`, que casa a sequencia literal `|/` e nao existe em lugar nenhum - por isso deu 0. A forma atual ancora no INICIO do template e exige, com `[^\\`]*`, que nenhuma crase tenha aparecido antes do comentario",
+    "seeds_bloco": [
+      "=\\s*`<!DOCTYPE[^`]*\\n\\s*//[^\\n]*`"
+    ]
+  },
+  "disparo-em-lote-sem-ritmo-da-casa": {
+    "titulo": "Disparo de WhatsApp em LOTE sem importar o `ritmo_humano` da casa - foi assim que o numero foi bloqueado por 24 h",
+    "fonte": "_shared/PADROES.md#ritmo-disparo-ativo",
+    "onde": "porta",
+    "porque": "O ritmo NAO pode ser um numero que alguem digita - nem em script de resgate, nem em correcao de emergencia. Em  o numero de WhatsApp foi BLOQUEADO POR 24 H no dia da live, e a causa foi um script avulso que nao importou o modulo e digitou o proprio intervalo. A regra diz, verbatim: *nao pode existir caminho que receba o tamanho da fila e acelere porque e pouco* - e a urgencia produziu exatamente esse caminho. 🔑 URGENCIA E O GATILHO DO ERRO, NAO A LICENCA PARA ELE: quando o relogio aperta, corta-se a LISTA, nunca o intervalo.",
+    "conserto": "todo caminho que fala com o WhatsApp importa `Fluxo/Etapa-Um/scripts/ritmo_humano.py` (stdlib pura, o workflow nao instala dependencia). Sorteio GAUSSIANO com piso e teto, nunca uniforme - intervalo uniforme tem assinatura tao artificial quanto intervalo fixo. E dormir so quando houve TRAFEGO (`enviada` e `falhas`), nao a cada volta do laco: dormir por iteracao dava ~27 min por rodada e estouraria a cota do Actions, com o anti-ban desligando o fluxo.",
+    "escopo": "(whatsapp|blast|disparo|lote|resgate|campanha)[^\\/]*\\.(py|js|mjs|cjs|ts)$",
+    "seeds_bloco": [
+      "for\\s+\\w+\\s+in\\s+[^\\n]{1,70}:[\\s\\S]{0,300}?(send_whatsapp|enviar_whatsapp|sendText)\\s*\\("
+    ],
+    "exige": "ritmo_humano",
+    "calibrado": "0 arquivos no Fluxo, seed PROVADO vivo [medido] - os disparadores de la ja importam o modulo, e a regra nasce impedindo que o proximo script avulso apareca sem ele. 🔑 Esta regra e o BLOQUEIO MECANICO que a propria fonte diz nao existir: *enquanto o bloqueio mecanico nao existir, a trava e operacional*. ⚠️ Escopo limitado ao Fluxo porque e onde o `ritmo_humano.py` vive. O Monitor tem 121 arquivos que falam com WhatsApp sem modulo de ritmo `[medido]`, e isso e decisao do dono de la: precisa de modulo equivalente antes de poder ter gate",
+    "_escopo_antes": "era o nome de um projeto desta casa; virou o assunto do arquivo, que viaja"
+  },
+  "llm-direto-para-o-cliente-sem-sanitizar": {
+    "titulo": "Resposta de LLM indo direto para WhatsApp sem tirar o header markdown - o `#` aparece literal e parece bug",
+    "fonte": "_shared/PADROES.md#llm-markdown-sanitize",
+    "onde": "porta",
+    "porque": "Mesmo quando o prompt pede so '1-2 frases', o modelo as vezes devolve um titulo markdown na frente (`# Mensagem para Joao\\n\\nOtimas noticias...`). O WhatsApp NAO renderiza `#`: fica literal no comeco da mensagem, e o cliente ve o que parece um bug. Medido: 4 de 13 mensagens do resumo semanal sairam com `# Mensagem para [nome completo]` apesar de o prompt pedir so o corpo. LLM e nao-deterministico - prompt sozinho nao basta, e por isso a defesa e em DUAS camadas.",
+    "conserto": "prompt explicito ('Responda APENAS o corpo da mensagem em texto corrido, sem titulo, cabecalho, markdown ou saudacao separada') MAIS sanitizador no codigo: linhas = [l for l in texto.split('\\n') if not l.lstrip().startswith('#')]. ⚠️ Se a mensagem real puder comecar com `#` (hashtag), ancorar com regex mais especifica: `^#{1,6}\\s+\\w`.",
+    "seeds_bloco": [
+      "content.{0,3}\\[0\\]\\[.text.\\][\\s\\S]{0,400}?(send_whatsapp|enviar_whatsapp|sendText)\\s*\\(",
+      "choices.{0,3}\\[0\\][\\s\\S]{0,60}content[\\s\\S]{0,400}?(send_whatsapp|enviar_whatsapp|sendText)\\s*\\("
+    ],
+    "exige": "startswith\\s*\\(\\s*.#",
+    "calibrado": "0 arquivos, os 2 seeds PROVADOS vivos [medido] - a prova cobre os dois formatos de resposta, o `content[0]['text']` e o `choices[0].message.content`. ⚠️ A 1a versao do seed 1 saiu INVALIDA porque o regex esperava `content[0]` colado e a prova tinha `data['content'][0]` - o fechamento do indice no meio. O `--prova` pegou"
+  },
+  "wrangler-deploy-name-sem-config": {
+    "titulo": "`wrangler deploy --name` sem `--config` sobe o JS e PERDE todos os bindings - erro 1101 em producao",
+    "fonte": "_shared/PADROES.md#wrangler-config-bindings",
+    "onde": "vigia",
+    "porque": "A auto-deteccao do TOML funciona SO se o arquivo se chamar exatamente `wrangler.toml`. Com nome custom, `npx wrangler deploy worker.js --name X` faz upload do JS e perde TODOS os bindings declarados (KV, Service Bindings, Vars). Em runtime `env.MY_KV.get(...)` vira `undefined.get(...)` e estoura erro 1101. O sintoma engana: o HTML carrega normal em 200, e so os endpoints que usam KV dao 500/401 misterioso. Medido: deploy do CRM 3x sem `--config` quebrou producao. ⚠️ E a auto-deteccao e mais esperta do que a regra original sugere: ela parte do ENTRY POINT, nao do diretorio atual. So falha de verdade quando o TOML tem NOME CUSTOM (`wrangler-crm.toml`), que foi o caso medido no Monitor.",
+    "conserto": "`cd workers && npx wrangler deploy --config wrangler-crm.toml`. E conferir na saida: o `wrangler deploy` imprime 'Your Worker has access to the following bindings' - se sumiu, os bindings sumiram. ⚠️ Anti-pattern: confiar no `--name` esperando herdar os bindings da versao anterior. A Cloudflare NAO faz isso - cada deploy e estado COMPLETO.",
+    "seeds": [
+      "wrangler\\s+deploy\\b[^\\n|;&]{0,120}--name\\b"
+    ],
+    "nao_se": "--config",
+    "calibrado": "🔴 REBAIXADA DE PORTA PARA VIGIA, no dia em que nasceu. Ao abrir o gate para `.yml` ela achou 2 casos no Fluxo (`deploy-webhook.yml:65` e `n1-apply-training.yml:43`) e os DOIS sao FALSOS POSITIVOS. Quem mostrou foi um comentario dentro do proprio `Fluxo/Etapa-Um/workers/wrangler.toml`, escrito contra um erro identico ao meu: *\"o wrangler procura a config A PARTIR DO ENTRY POINT, nao do diretorio de trabalho\"*. Como o comando passa `workers/whatsapp-webhook.js`, o wrangler acha o `workers/wrangler.toml` ao lado, e os 5 bindings (vars, LEADS_KV, D1, Vectorize, AI) sobrevivem. ▶ Decidir se um comando perde bindings exige saber COMO o TOML se chama e ONDE ele esta em relacao ao entry point - duas coisas que nao estao no comando. Gate que julga erra; aqui ele reporta e o dono confere."
+  },
+  "indexa-por-telefone": {
+    "titulo": "Dicionario indexado por telefone - chave que o dominio admite repetida",
+    "fonte": "_shared/PADROES.md#dict-por-chave-unica",
+    "onde": "vigia",
+    "porque": "`dict[whatsapp]` e bug latente em qualquer base que admita 2+ entradas pela mesma chave - o mesmo numero com duas unidades, o mesmo lead em dois funis. A segunda entrada sobrescreve a primeira em silencio, e o que se perde e cliente.",
+    "conserto": "indexar pela chave COMPOSTA que e de fato unica no dominio - `(wa, unit_id)` em vez de `wa` - ou usar `defaultdict(list)` quando a repeticao for legitima e o consumidor tiver de ver todas.",
+    "seeds": [
+      "^\\s*\\w+\\[\\s*(wa|phone|whatsapp|telefone|numero)\\w*\\s*\\]\\s*=\\s*\\w"
+    ],
+    "calibrado": "6 arquivos [medido]. Vigia e nao porta porque nem todo indice por telefone e defeito: `vistos[numero] = agora` e `cache[wa] = ...` sao caches onde 1 telefone = 1 entrada por definicao. Separar exige saber se o DOMINIO admite duplicata, e isso o regex nao ve. ⚠️ O seed com chave entre aspas dava 13 e metade era atribuicao de CAMPO (`out[\"telefone\"] = ...`), nao indexacao de colecao - a chave tem de ser variavel ⚠️ Remedido sem as cópias de worktree: o calibrador contava o mesmo arquivo uma vez por worktree (866 de 4.235, 20,4%), e o `Monitor` vive em mais dois lugares. O número anterior era %d."
+  },
+  "parsefloat-decimal-br": {
+    "titulo": "`parseFloat` em valor digitado por brasileiro corta na vírgula e grava um número menor, calado",
+    "fonte": "_shared/PADROES.md#parsefloat-virgula",
+    "onde": "porta",
+    "porque": "`parseFloat(\"7,2\")` devolve **7** — o JS espera ponto como separador decimal e simplesmente para na vírgula. Não lança, não avisa, grava. Operador brasileiro digita \"7,2\" no formulário e o banco recebe 7. Aconteceu em `PATCH /api/admin/kwp`: o dono da casa digitou 7,2 kWp para um colega Maximus e gravou 7 — 0,2 kWp a menos, sem nenhum sinal. Toda conta que descesse dali (baseline, proporção de rateio, performance) usaria o número errado achando que era o certo.",
+    "conserto": "trocar a vírgula por ponto ANTES do parse, e validar o resultado:\n    const n = parseFloat(String(v ?? '').replace(',', '.'));\n    if (isNaN(n) || n <= 0) return json({ erro: 'inválido' }, 400);\nVale para QUALQUER decimal vindo de formulário, textarea ou JSON de origem brasileira. Em Python a mesma entrada dá `ValueError` em `float(\"7,2\")` — barulhento, e por isso menos perigoso que aqui.",
+    "seeds": [
+      "parseFloat\\s*\\([^)]*(\\.value|body\\.|req\\.|\\bform\\b|\\binput\\b|payload)"
+    ],
+    "nao_se": "replace\\s*\\(\\s*['\\\"],\\s*['\\\"]|replace\\(/,/",
+    "escopo": "\\.(jsx?|tsx?|mjs|cjs)$",
+    "calibrado": "6 arquivos [medido , sem cópias de worktree], seed PROVADO vivo contra `const kwp = parseFloat(body.kwp);`. O seed largo (`parseFloat\\s*\\(`) dava 58 e quase tudo era `parseFloat(el.dataset.to)` — dado que o próprio código escreveu, e não entrada de gente; por isso o seed exige que o argumento venha de `.value`, `body.`, `req.`, `form`, `input` ou `payload`. ⚠️ **Fica cega a `.html`**, onde vivem mais 3 casos reais (`Docs-Concessionaria/scripts/formulario.html`, `Fluxo/Etapa-Um/packages/proposta-gerador/index.html`, `Robo-Concessionaria/frontend/index.html`): `.html` não está no `CODIGO` do gate, e medi que abrir não compensa hoje — 4 regras existentes estouram o teto de latência (até 511 ms num arquivo) e os 6 achados em 849 arquivos `.html` são 6 falsos positivos (posts do Rede-Social que DESCREVEM o padrão, e o `graph.html` gerado que contém o texto do próprio PADROES.md)."
+  },
+  "php-saida-antes-do-header": {
+    "titulo": "`<?php` fora do byte 0 — o redirect vira 200 com corpo vazio e o cliente fica parado na página",
+    "fonte": "_shared/PADROES.md#php-header-bom",
+    "onde": "porta",
+    "porque": "Qualquer coisa antes de `<?php` — espaço, tabulação, quebra de linha, BOM — já é CORPO da resposta. A partir daí o PHP descarta todo `header()`, e o `header('Location: ...')` simplesmente não sai: o navegador recebe **200 OK com 1 byte** e nenhum redirecionamento. Não há erro na tela; só no `error_log`, como *Cannot modify header information*. Aconteceu em `pulse.empresa.com.br/assinar/index.php` e `/dash/index.php`. O Notepad do Windows grava BOM por padrão e é invisível no editor — o arquivo parece certo.",
+    "conserto": "`<?php` na coluna 1 da linha 1, e o arquivo gravado SEM BOM.\n    - conferir:  python -c \"print(open(f,'rb').read()[:8])\"\n      tem de começar em `b'<?php'`, nunca em `b'\\xef\\xbb\\xbf'`\n    - ao colar de chat ou markdown, apagar a linha em branco de cima\n    - salvar pelo VSCode ou pelo File Manager do cPanel (utf-8 sem BOM); o Notepad clássico adiciona BOM calado",
+    "so_se": "header\\s*\\(\\s*['\\\"]Location",
+    "nao_tem": "\\A<\\?php",
+    "escopo": "\\.php$",
+    "calibrado": "0 arquivos [medido] — nasce PREVENTIVA, e os 3 `.php` da casa estão limpos hoje (BOM ausente, `<?php` no byte 0, e cada um com um `header('Location:')`, que é o `so_se`). O valor não está na dívida atual e sim em quem esses arquivos SÃO: as três páginas de cliente no ar em `pulse.empresa.com.br`, editadas raramente e pelo File Manager, que é exatamente o cenário em que o BOM entra sem ninguém ver. O `so_se` evita o único falso positivo possível: `.php` que não redireciona pode ter saída antes do `<?php` de propósito (template)."
+  },
+  "whatsapp-worker-sem-throttle": {
+    "titulo": "Worker de WhatsApp sem freio por número — 3 mensagens seguidas do cliente viram 3 respostas idênticas",
+    "fonte": "_shared/PADROES.md#whatsapp-anti-loop",
+    "onde": "porta",
+    "porque": "O cliente manda 3 mensagens em sequência rápida, a Evolution dispara 3 webhooks, e 3 execuções sobem em paralelo. As três leem o arquivo de sessão ANTES de qualquer uma escrever, e as três concluem a mesma coisa — o cliente recebe a mesma resposta 3 vezes e aquilo lê como spam, vindo de um número de WhatsApp que a casa já teve bloqueado por 24h. O freio tem de estar no WORKER, antes do despacho: depois dele já há três processos, e aí nenhum cuidado dentro do bot resolve.",
+    "conserto": "freio de ~45s por número no KV, ANTES de despachar:\n    const TTL_THROTTLE = 45;\n    const k = `thr:${numero}`;\n    if (await env.KV.get(k)) return new Response('throttled', {status: 202});\n    await env.KV.put(k, '1', {expirationTtl: TTL_THROTTLE});\nO 202 é de propósito: a Evolution não pode ler como falha e reenviar.",
+    "so_se": "export\\s+default\\s*\\{[\\s\\S]*async\\s+fetch",
+    "nao_tem": "TTL_THROTTLE|throttl|expirationTtl",
+    "escopo": "(whatsapp|evolution)[^\\\\/]*\\.(js|ts|mjs)$",
+    "calibrado": "0 arquivos [medido] — nasce PREVENTIVA, e o zero foi CONFERIDO e não aceito: os 2 workers de WhatsApp da casa (`Fluxo/Etapa-Um/workers/whatsapp-webhook.js` e `Monitor/workers/whatsapp-router.js`) casam o `so_se` e casam o `escopo`, e os dois têm freio de verdade — o do Fluxo com 12 `expirationTtl`, o do Monitor com `TTL_THROTTLE` e 8 `throttl`. Sem essa conferência, `0 achados` e `o detector não alcança ninguém` seriam a mesma saída. O valor está no worker de WhatsApp que ainda vai nascer: o freio é fácil de esquecer e o sintoma só aparece com o cliente digitando rápido, que é justamente quando ninguém está olhando."
+  },
+  "actions-push-sem-permissao": {
+    "titulo": "Workflow que faz `git push` sem `permissions: contents: write` — tudo roda, e só o push dá 403",
+    "fonte": "_shared/PADROES.md#actions-permissions-write",
+    "onde": "porta",
+    "porque": "Em repo criado depois de fev/2023 o `GITHUB_TOKEN` nasce **read-only**. O workflow que coleta, gera e commita roda inteiro sem erro e quebra **só no último passo**, com `denied to github-actions[bot]` e `error: 403` (exit 128). É o jeito mais caro de falhar: o trabalho aconteceu, o resultado não voltou, e o log parece bom até o fim. O sinal que confunde é outro workflow do MESMO repo continuar commitando — aquele declara o escopo.",
+    "conserto": "declarar a permissão no job (ou no topo do workflow):\n    jobs:\n      meujob:\n        runs-on: ubuntu-latest\n        permissions:\n          contents: write   # o git push do commit precisa disto\nMudar o default do repo em Settings também resolve, mas não fica versionado: o próximo repo nasce com o mesmo furo.",
+    "so_se": "git\\s+push",
+    "nao_tem": "contents:\\s*write",
+    "escopo": "workflows[\\\\/][^\\\\/]+\\.ya?ml$",
+    "calibrado": "4 arquivos [medido]: `Canal-Video/.github/workflows/produce-video.yml` e `Personal/.github/workflows/concessionaria-atualizar-estado.yml` (vivos) mais 2 em `Rede-Social/_arquivo/workflows/` (arquivados). O universo é real e grande: **480 workflows varridos, 63 fazem `git push`, e 59 já declaram a permissão** — ou seja, a casa em geral acerta e estes 4 são a exceção, que é exatamente o perfil de `porta`. 🔴 A primeira calibragem devolveu **0 achados, a casa está limpa** porque o escopo foi passado pela linha de comando e o escape se perdeu: o regex não casou com arquivo nenhum. Escopo que não alcança responde igualzinho a notícia boa. Desde então a calibragem confere primeiro **quantos arquivos o escopo alcança** (480) e só depois olha o número de achados. A ausência foi provada nos dois sentidos: acusa o workflow sem a permissão e **não** acusa o que a declara."
+  },
+  "vps-wrapper-sem-source-env": {
+    "titulo": "Wrapper do VPS que roda script `.py` sem carregar o `.env` — as chamadas saem sem credencial e o servidor devolve 401 limpo",
+    "fonte": "_shared/PADROES.md#vps-env-source",
+    "onde": "porta",
+    "porque": "Na VPS o ambiente não está carregado: quem carrega é o próprio wrapper, e só durante a execução dele. Sem o `source`, todo `os.getenv('X', '')` devolve **string vazia**, a chamada HTTP sai sem autenticação e o outro lado responde **401 limpo**. O diagnóstico vai para o lugar errado: parece sessão expirada, e é ambiente vazio. Caso real: um dry-run do `resumo_semanal` deu 401 em **13 clientes**, e o que denunciou foi um `curl` paralelo com o `source` respondendo 200.",
+    "conserto": "carregar o ambiente no início do wrapper, antes de qualquer chamada:\n    cd /opt/<projeto>\n    set -a; source .env; set +a\n    python3 scripts/<script>.py\nConferir na hora: `echo \"$PROXY_SECRET\"` — se sair vazio, é isto.",
+    "so_se": "python3?\\s+[^-\\s][^\\n]*\\.py\\b",
+    "nao_tem": "source\\s+[^\\n]*\\.env|set\\s+-a|EnvironmentFile|ExecStart",
+    "escopo": "vps[\\\\/][^\\\\/]+\\.sh$",
+    "calibrado": "4 arquivos [medido] sobre alcance de 54: `Fluxo/Etapa-Um/scripts/vps/run_orquestrador.sh`, `run_quem_sumiu.sh` e `run_vigia_da_linha.sh`, mais `HUB-Setorial/scripts/vps/coletar_tudo.sh`. 🔴 O seed largo (`python3\\s`) dava **7** e 3 eram falsos: `lib_trilha_tjdft.sh` é BIBLIOTECA — quem faz o `source` é o wrapper que a carrega —, `fix_autostash_opt.sh` usa `python3 - <<PY` para cirurgia de texto, e `install_bot_buffer_daemon.sh` escreve uma unidade **systemd**, onde o ambiente vem de `EnvironmentFile=` e não de `source`. O discriminador que separou: **python rodando um ARQUIVO `.py` precisa do ambiente; python inline não** — inline faz texto, não chama API. Provado em 5 casos: acusa o wrapper sem `source`; não acusa quem faz `source`, nem unidade systemd, nem `python3 -c`, nem heredoc."
+  },
+  "segredo-comparado-sem-tempo-constante": {
+    "titulo": "Segredo comparado com `==`/`===` — o tempo da comparação entrega o segredo letra por letra",
+    "fonte": "_shared/PADROES.md#secret-constant-time",
+    "onde": "porta",
+    "porque": "`==` para na primeira letra diferente. Quem chama o endpoint milhares de vezes mede quanto tempo cada tentativa levou e descobre o segredo **letra por letra**, sem nunca ter acertado nenhuma inteira. Não é teórico em rede de baixa latência, e o alvo típico é exatamente o que esta casa tem: senha de admin e token de webhook. A comparação em tempo constante percorre os dois valores inteiros sempre, então o relógio não conta nada.",
+    "conserto": "comparar em tempo constante:\n    JS:      crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))\n             — os dois Buffers têm de ter o MESMO tamanho, senão ele lança;\n               compare o comprimento antes, que isso não vaza nada.\n    Python:  hmac.compare_digest(a, b)\nSe o arquivo JÁ tem uma função dessas, use a que existe — defesa que mora no arquivo e não é chamada em todo ponto é defesa que não existe.",
+    "seeds": [
+      "(token|secret|segredo|senha|password|passwd|chave|signature|assinatura|hmac|api_?key)\\w*\\s*===?\\s*((env\\.|process\\.env\\.|os\\.environ)|[A-Z][A-Z0-9_]*(TOKEN|SECRET|SEGREDO|SENHA|PASSWORD|PASSWD|CHAVE|SIGNATURE|ASSINATURA|HMAC|API_?KEY)[A-Z0-9_]*)",
+      "((env\\.|process\\.env\\.|os\\.environ)[\\w.\\[\\]'\\\"]*(TOKEN|SECRET|SEGREDO|SENHA|PASSWORD|PASSWD|CHAVE|SIGNATURE|ASSINATURA|HMAC|API_?KEY)|[A-Z][A-Z0-9_]*(TOKEN|SECRET|SEGREDO|SENHA|PASSWORD|PASSWD|CHAVE|SIGNATURE|ASSINATURA|HMAC|API_?KEY)[A-Z0-9_]*)[\\w.\\[\\]'\\\"]*\\s*===?\\s*(?!None|null)[a-z_$][\\w.$\\[\\]]*"
+    ],
+    "nao_se": "compare_digest|timingSafeEqual|crypto\\.timingSafe|assert\\s|===?\\s*(null|None|true|false)\\b",
+    "calibrado": "3 arquivos [medido] sobre alcance de 2.066, e os TRÊS são reais: `Empresa-Site-v2/src/app/api/admin/auth.ts:9` (o site NO AR) e o mesmo no `Empresa-Site` aposentado, ambos `return token === ADMIN_PASSWORD`; mais `Fluxo/Etapa-Tres/workers/fluxo-etapa-tres-lead.js:993`, que compara o token do webhook da Meta com `===` **tendo comparação em tempo constante no próprio arquivo, na linha 303** — defesa existindo e não sendo herdada. 🔴 Este último quase não apareceu: o `nao_se` tinha `==\\s*['\\\"]` para matar fixture de teste, e matava a LINHA inteira — o `modo === 'subscribe'` no começo da linha 993 apagava o `token === env.META_WEBHOOK_VERIFY` no fim. Falso negativo por filtro de ruído próprio, e falso negativo é sempre MUDO. O filtro era desnecessário: os seeds já exigem `env.` ou constante do outro lado, e literal nunca casa. O seed largo dava 9 com 6 falsos (`=== null`, `=== false`, busca em lista, dois hashes locais); a exigência de que **o nome tenha palavra de segredo dos dois lados** tirou todos. Provado em 13 casos, 5 que acusam e 8 que não podem acusar."
+  }
+}
