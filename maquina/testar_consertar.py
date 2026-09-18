@@ -172,8 +172,23 @@ else:
            all(("\n" + c + ":") in escrito
                for c in ("nome", "owner", "lifecycle", "o_que_e")))
 
+# 🔴 OS DOIS CAMINHOS, e ter so um foi o defeito. Em Python 3.9 e 3.10 nao
+# existe `tomllib`, e sem parser a peca RECUSA gravar — que e o comportamento
+# certo, porque config de scanner nao conferida faz o gitleaks abortar, e
+# aborto le igual a nada encontrado.
+#
+# ⚠️ O teste so conhecia o caminho COM parser, entao ele reprovava nas versoes
+# em que a peca acertava. Um teste assim empurra para o conserto errado: o
+# caminho de menor resistencia seria voltar a gravar sem provar, para o verde
+# voltar. Foi a matriz de versoes do CI que mostrou os dois lados.
 ok, det = ct.conserta_sec(CRU, "cru", aplicar=True)
-marcar("escreve .gitleaks.toml parseavel", ok is True, det)
+if ct.parser_de_toml() is None:
+    marcar("SEM parser de TOML, recusa gravar e diz por que",
+           ok is False and "parser" in det, det)
+    marcar("   e o arquivo NAO foi criado",
+           not os.path.isfile(os.path.join(CRU, ".gitleaks.toml")))
+else:
+    marcar("escreve .gitleaks.toml parseavel", ok is True, det)
 
 
 # -- 2. NAO PODE TOCAR -------------------------------------------------------

@@ -217,9 +217,27 @@ def medida_vale(numeros):
 
 
 def linha_de_fatos(numeros):
-    s, c, m, v = numeros[:4]
-    return ("Medido: %d suítes, %d checagens, %d mutações, %d sobrevivente%s."
-            % (s, c, m, v, "" if v == 1 else "s"))
+    """A linha do painel, com os números que NÃO dependem do ambiente.
+
+    🔴 A CONTAGEM DE CHECAGENS SAIU DAQUI, e o motivo é bom. Várias suítes
+    pulam, de propósito, grupos que não se aplicam onde estão rodando: a prova
+    cruzada do `projeto.yml` exige um gate que não viaja com a máquina; o
+    grupo do arranjo exige a pasta que só existe na casa que monta; a
+    comparação entre catálogos exige dois catálogos diferentes. Cada uma
+    anuncia que pulou, e pular dizendo é o comportamento certo delas.
+
+    O efeito é que o total de checagens varia com o ambiente — medido: 401
+    nesta casa e 396 no runner do CI, sem nenhum defeito existir. Comparar
+    isso por igualdade transforma um painel de fatos numa fonte de alarme
+    falso, e alarme falso é o caminho mais curto para alguém desligar a
+    checagem inteira.
+
+    ⚠️ Suítes, mutações e sobreviventes NÃO variam assim, e por isso ficam:
+    eles contam o que a máquina prova, não quanto do ambiente ela encontrou.
+    """
+    s, _c, m, v = numeros[:4]
+    return ("Medido: %d suítes, %d mutações, %d sobrevivente%s."
+            % (s, m, v, "" if v == 1 else "s"))
 
 
 def painel_atual(base, arr):

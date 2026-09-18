@@ -191,8 +191,21 @@ try:
         mr.painel_atual(destino2, ARR))
     diz("monta a linha a partir dos numeros",
         mr.linha_de_fatos((15, 296, 40, 0))
-        == "Medido: 15 suítes, 296 checagens, 40 mutações, 0 sobreviventes.",
+        == "Medido: 15 suítes, 40 mutações, 0 sobreviventes.",
         mr.linha_de_fatos((15, 296, 40, 0)))
+    # 🔑 E a contagem de checagens NAO entra na linha, de proposito: ela varia
+    # com o ambiente porque as suites pulam grupos que nao se aplicam onde
+    # estao. Medido: 401 nesta casa e 396 no runner, sem defeito nenhum.
+    # Comparar isso por igualdade so produz alarme falso, e alarme falso e o
+    # caminho mais curto para alguem desligar a checagem inteira.
+    diz("   e a contagem de checagens fica FORA da linha",
+        "checagens" not in mr.linha_de_fatos((15, 296, 40, 0)))
+    diz("   entao duas medicoes com checagens diferentes dao a MESMA linha",
+        mr.linha_de_fatos((15, 401, 40, 0))
+        == mr.linha_de_fatos((15, 396, 40, 0)))
+    diz("   mas mutacao a mais muda a linha",
+        mr.linha_de_fatos((15, 401, 40, 0))
+        != mr.linha_de_fatos((15, 401, 41, 0)))
     diz("e o singular de 1 sobrevivente e respeitado",
         mr.linha_de_fatos((1, 1, 1, 1)).endswith("1 sobrevivente."),
         mr.linha_de_fatos((1, 1, 1, 1)))
