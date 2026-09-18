@@ -41,10 +41,12 @@ jobs:
 
       - name: preparar
         run: |
-          cp maquina/privacidade.json.exemplo maquina/privacidade.json
-          cp maquina/mapa.json.exemplo maquina/mapa.json
-          cp portas/casa.json.exemplo portas/casa.json
-          cp portas/seeds_inseguros.json.exemplo portas/seeds_inseguros.json
+          # Todo `.exemplo` vira o arquivo real, sem lista a mao. Assim o
+          # passo seguinte prova, de quebra, que os exemplos
+          # publicados BASTAM para o repositorio rodar.
+          for f in maquina/*.exemplo portas/*.exemplo; do
+            [ -e "$f" ] && cp "$f" "${f%.exemplo}"
+          done
 
       - name: rodar tudo
         run: |

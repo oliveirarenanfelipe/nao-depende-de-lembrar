@@ -61,10 +61,12 @@ jobs:
 
       - name: o dado de exemplo vira o dado de verdade
         run: |
-          cp maquina/privacidade.json.exemplo maquina/privacidade.json
-          cp maquina/mapa.json.exemplo maquina/mapa.json
-          cp portas/casa.json.exemplo portas/casa.json
-          cp portas/seeds_inseguros.json.exemplo portas/seeds_inseguros.json
+          # Todo `.exemplo` vira o arquivo real, sem lista a mao. Assim o
+          # passo seguinte prova, de quebra, que os exemplos
+          # publicados BASTAM para o repositorio rodar.
+          for f in maquina/*.exemplo portas/*.exemplo; do
+            [ -e "$f" ] && cp "$f" "${f%.exemplo}"
+          done
 
       - name: as suites da maquina, com mutacao
         run: |
@@ -99,10 +101,12 @@ jobs:
       - name: preparar
         run: |
           pip install --quiet coverage
-          cp maquina/privacidade.json.exemplo maquina/privacidade.json
-          cp maquina/mapa.json.exemplo maquina/mapa.json
-          cp portas/casa.json.exemplo portas/casa.json
-          cp portas/seeds_inseguros.json.exemplo portas/seeds_inseguros.json
+          # Todo `.exemplo` vira o arquivo real, sem lista a mao. Assim o
+          # passo seguinte prova, de quebra, que os exemplos
+          # publicados BASTAM para o repositorio rodar.
+          for f in maquina/*.exemplo portas/*.exemplo; do
+            [ -e "$f" ] && cp "$f" "${f%.exemplo}"
+          done
 
       - name: medir
         run: |
@@ -154,7 +158,13 @@ jobs:
           python-version: '3.12'
 
       - name: preparar
-        run: cp maquina/privacidade.json.exemplo maquina/privacidade.json
+        run: |
+          # Todo `.exemplo` vira o arquivo real, sem lista a mao. Assim o
+          # passo seguinte prova, de quebra, que os exemplos publicados
+          # BASTAM para o repositorio rodar.
+          for f in maquina/*.exemplo portas/*.exemplo; do
+            [ -e "$f" ] && cp "$f" "${f%.exemplo}"
+          done
 
       - name: medir as tres superficies
         run: python -B maquina/antes_de_publicar.py .
