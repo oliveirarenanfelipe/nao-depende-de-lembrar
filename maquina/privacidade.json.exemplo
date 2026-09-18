@@ -46,18 +46,24 @@
     "docs.github.com",
     "editorconfig.org",
     "git-scm.com",
-    "python.org"
+    "python.org",
+    "noreply@anthropic.com",
+    "claude.com/claude-code",
+    "anthropic.com",
+    "pypi.org",
+    "github.com/trailofbits/insecure-defaults",
+    "trailofbits"
   ],
   "pessoa_empresa": [
-    "Fulano",
-    "Sicrana",
-    "Empresa Exemplo",
+    "Maria da Silva",
+    "Joao Pereira",
+    "Comercio Modelo Ltda",
     "usuario-do-github"
   ],
   "projeto_interno": [
-    "Projeto-Alfa",
-    "Projeto-Beta",
-    "Cliente[- ]Gama"
+    "Projeto-Vermelho",
+    "Projeto-Azul",
+    "Cliente[- ]Verde"
   ],
   "_leia_caminho": [
     "Note o que NAO esta aqui: `~/.claude`. Ele nao identifica ninguem — e o",

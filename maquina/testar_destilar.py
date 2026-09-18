@@ -332,6 +332,27 @@ io.open(perdido, "w", encoding="utf-8").write(json.dumps({"reescritas": {
 marcar("par que nao casa REPROVA, em vez de aplicar o resto calado",
        ds.reescrever(perdido) != 0)
 
+# 🔴 E O RASCUNHO VELHO NAO PODE REGREDIR O PUBLICADO. Este era o defeito que
+# aparecia tres vezes num unico dia: bastava um `_rascunho/` de ontem para o
+# `--reescrever` sobrepor a versao de hoje, em silencio. O `--conferir` pegava
+# depois, entao a rede existia — e o buraco tambem.
+#
+# 🔑 O conserto e o `--reescrever` REGENERAR o rascunho antes de aplicar, e
+# isso so e seguro porque a reescrita mora no dado (grupo 2e acima). A prova
+# e direta: enveneno o rascunho com um texto que a peca interna nao tem, e
+# exijo que ele NAO chegue ao publicado.
+_veneno = os.path.join(ds.RASCUNHO, "pessoa.py")
+io.open(_veneno, "w", encoding="utf-8", newline=chr(10)).write(
+    "# RASCUNHO VELHO QUE NAO PODE SUBIR\ndef rodar():\n    return 999\n")
+ds.reescrever(fonte_re)
+_depois = io.open(os.path.join(ds.SAIDA, "pessoa.py"),
+                  encoding="utf-8").read()
+marcar("rascunho VELHO nao regride o publicado",
+       "RASCUNHO VELHO" not in _depois and "return 999" not in _depois,
+       _depois.split(chr(10))[0][:50])
+marcar("   e o conteudo certo continua la",
+       "return 3" in _depois and PESSOA not in _depois)
+
 vazio_re = os.path.join(SANDBOX, "reescritas_vazias.json")
 io.open(vazio_re, "w", encoding="utf-8").write('{"reescritas": {}}')
 try:
@@ -674,10 +695,121 @@ for _real in PARES:
         continue
     kr = set(json.load(io.open(cr, encoding="utf-8")))
     ke = set(json.load(io.open(ce, encoding="utf-8")))
-    marcar("`%s` ensina as mesmas chaves do real" % os.path.basename(ce),
+    marcar("`%s` ensina as mesmas chaves do real"
+           % os.path.basename(ce),
            kr == ke,
            "falta no exemplo: %s | sobra: %s"
            % (sorted(kr - ke) or "-", sorted(ke - kr) or "-"))
+
+# -- 2j. O CATALOGO DE EXEMPLO NAO PODE ACUSAR O QUE VAI PUBLICADO ----------
+# 🔴 O DETECTOR ESTAVA MEDINDO A SI MESMO, e quem mostrou foi o CI. O
+# `privacidade.json.exemplo` trazia `Fulano`, `Projeto-Alfa` e `Projeto-Beta`
+# como termos de exemplo, e os testes usam exatamente esses nomes como
+# amostras que o detector TEM de acusar.
+#
+# Rodando com o catalogo de exemplo — que e o que o CI faz e o que quem clona
+# faz — o repositorio reprovava a si mesmo, em dois arquivos, com um motivo
+# que parece vazamento e nao e.
+#
+# 🔑 Sao dois papeis, e eles nao podem compartilhar vocabulario:
+#    · o `.exemplo` ensina a FORMA do dado a quem clona
+#    · o teste precisa de texto que o detector acuse
+# Onde os dois se encostam, o repositorio acusa a propria prova.
+print("\n== 2j. o catalogo de exemplo nao acusa o que vai publicado ==")
+
+_ex_priv = ([c for c in (os.path.join(AQUI, "publicado",
+                                      "privacidade.json.exemplo"),
+                         os.path.join(AQUI, "privacidade.json.exemplo"))
+             if os.path.isfile(c)] or [""])[0]
+if not _ex_priv:
+    marcar("o catalogo de exemplo existe no disco", False)
+else:
+    # ⚠️ SO AS FAMILIAS DE IDENTIDADE, e o recorte e deliberado. A familia
+    # `contato/URL` acusaria a URL do proprio repositorio, que os arquivos de
+    # governanca citam por dever de oficio — e a URL nao pode entrar no
+    # `.exemplo`, porque ali ela seria dado da casa. Quem cuida dela e o
+    # `antes_de_publicar` com o catalogo real, e o CI, que acrescenta a URL do
+    # repositorio ao dado antes de medir. O alvo AQUI e outro: colisao de
+    # VOCABULARIO entre o exemplo e as amostras dos testes.
+    IDENTIDADE = ("pessoa/empresa", "projeto interno", "caminho do disco")
+    DO_EXEMPLO = [(n, rx) for n, rx in mp.carregar_marcas(_ex_priv)
+                  if n in IDENTIDADE]
+    PUB_EX = mp.carregar_publicos(_ex_priv)
+    FORM_EX = mp.carregar_formas(_ex_priv)
+    _pasta = os.path.dirname(_ex_priv)
+    # O proprio catalogo se acusa, e nao ha como nao: ele E a lista do que
+    # procura. Isento por NOME, com o motivo nesta linha.
+    _isento = os.path.basename(_ex_priv)
+    _sujos = []
+    for _nome in sorted(os.listdir(_pasta)):
+        if _nome == _isento or not _nome.endswith((".py", ".exemplo", ".md")):
+            continue
+        _cam = os.path.join(_pasta, _nome)
+        if not os.path.isfile(_cam):
+            continue
+        _t = io.open(_cam, encoding="utf-8", errors="replace").read()
+        _n, _sujas, _ = mp.medir_texto(_t, publicos=PUB_EX, marcas=DO_EXEMPLO,
+                                       formas=FORM_EX)
+        if _sujas:
+            _sujos.append("%s(%d)" % (_nome, len(_sujas)))
+    marcar("nenhum arquivo publicado e acusado pelo catalogo de EXEMPLO",
+           not _sujos, str(_sujos))
+
+    # E o outro lado, que impede a checagem de virar decoracao: se o catalogo
+    # de exemplo nao acusa NADA em lugar nenhum, ele nao esta armado.
+    _amostra = ("o %s trabalhou no %s"
+                % (mp.carregar_marcas(_ex_priv) and
+                   json.load(io.open(_ex_priv,
+                                     encoding="utf-8"))["pessoa_empresa"][0],
+                   json.load(io.open(_ex_priv,
+                                     encoding="utf-8"))["projeto_interno"][0]))
+    marcar("   e o catalogo de exemplo ACUSA quando ha o que acusar",
+           len(mp.marcas_da_linha(_amostra, publicos=PUB_EX,
+                                  marcas=DO_EXEMPLO, formas=FORM_EX)) == 2,
+           str(mp.marcas_da_linha(_amostra, publicos=PUB_EX,
+                                  marcas=DO_EXEMPLO, formas=FORM_EX)))
+
+    # 🔴 O LADO QUE FECHA O BURACO DA ISENCAO. O `privacidade.json.exemplo`
+    # e isento no gate do push, porque ele contem, por definicao, o
+    # vocabulario que procura. Isento que ninguem mede e buraco — entao a
+    # pergunta que sobra e a unica que importa: o exemplo nao pode carregar
+    # nenhum termo do catalogo REAL desta casa.
+    #
+    # ⚠️ Se isso acontecer, o vazamento sai pela porta da frente: um arquivo
+    # que o gate foi instruido a nao olhar, com o nome de um cliente dentro.
+    #
+    # ⚠️ E SO HA O QUE COMPARAR ONDE EXISTEM DOIS CATALOGOS. No repositorio
+    # publicado o `privacidade.json` NASCE do `.exemplo`, entao os dois sao o
+    # mesmo texto e a checagem se compararia consigo mesma — acusando sempre,
+    # sem nenhum defeito existir. Foi erro meu, pego rodando o repositorio
+    # montado: a quarta vez no dia em que uma peca assumiu o arranjo da casa.
+    # A comparacao e das FAMILIAS DE IDENTIDADE, e cheguei aqui por duas
+    # tentativas erradas. Comparar CAMINHO nao serve: no repositorio publicado
+    # os dois sao arquivos distintos, um copia do outro. Comparar o TEXTO
+    # inteiro tambem nao: o CI acrescenta a URL do repositorio ao
+    # `publico_declarado`, e o texto passa a diferir sem que nada de identidade
+    # tenha mudado.
+    #
+    # 🔑 O que decide e se os dois catalogos dizem coisas diferentes sobre
+    # QUEM. Se dizem o mesmo, um nasceu do outro e nao ha o que comparar.
+    _so_ident = ("pessoa_empresa", "projeto_interno", "caminho_do_disco")
+    _d_ex = json.load(io.open(_ex_priv, encoding="utf-8"))
+    _d_real = json.load(io.open(mp.FONTE, encoding="utf-8"))
+    _mesmo_texto = all(_d_ex.get(k) == _d_real.get(k) for k in _so_ident)
+    if _mesmo_texto:
+        print("  (pulado: aqui o catalogo real NASCE do exemplo, entao sao o")
+        print("   mesmo texto. A comparacao se faz na casa, que tem os dois.)")
+    else:
+        _ex_texto = io.open(_ex_priv, encoding="utf-8",
+                            errors="replace").read()
+        _achou = []
+        for _nome_m, _rx in REAIS:
+            for _l in _ex_texto.split(chr(10)):
+                if _rx.search(mp.limpa_publicos(_l, PUB_EX)):
+                    _achou.append("%s: %s" % (_nome_m, _l.strip()[:50]))
+                    break
+        marcar("o EXEMPLO nao carrega nenhum termo do catalogo real",
+               not _achou, str(_achou[:3]))
 
 vazio = os.path.join(SANDBOX, "vazio.json")
 io.open(vazio, "w", encoding="utf-8").write(

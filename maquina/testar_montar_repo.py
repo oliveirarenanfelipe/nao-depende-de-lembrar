@@ -219,6 +219,21 @@ try:
     diz("conta as mutacoes, detectadas e sobreviventes",
         medido[2] == 2, str(medido))
     diz("e conta separado a que SOBREVIVEU", medido[3] == 1, str(medido))
+    # 🔴 E CONTA QUANTAS SUITES REPROVARAM, que e o que impede o painel de
+    # mentir de outro jeito: medindo uma pasta sem o dado preparado, os
+    # numeros CAEM e o painel gravaria esse numero menor como se fosse o
+    # estado do projeto. Aconteceu — 129 checagens e 7 sobreviventes foram
+    # escritos por engano sobre 314 e 0.
+    diz("conta as suites que REPROVARAM", medido[4] == 0, str(medido))
+    mr.escreve_falso = True
+    _quebrado = os.path.join(BANCA, "quebrado")
+    escreve(os.path.join(_quebrado, "maquina", "testar_ruim.py"),
+            "import sys" + N + "print('  PASS  a')" + N + "sys.exit(1)" + N)
+    _n = mr.medir_suites(_quebrado)
+    diz("acusa a suite que reprovou", _n[4] == 1, str(_n))
+    diz("e a medida NAO vale para virar painel", not mr.medida_vale(_n))
+    diz("   enquanto a medida de uma rodada verde vale",
+        mr.medida_vale(medido))
 
     print(N + "== 7. MUTACAO — desarmar cada pergunta cega a peca ==")
 

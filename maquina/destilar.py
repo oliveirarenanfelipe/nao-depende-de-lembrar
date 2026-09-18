@@ -177,7 +177,7 @@ RASCUNHO = os.path.join(SAIDA, "_rascunho")
 MARCA = "# >>> PRIVADO["
 
 
-def rascunho(nome):
+def rascunho(nome, silencioso=False):
     """Grava a peça com CADA linha privada marcada, para a reescrita humana.
 
     🔴 O QUE FALTAVA, achado ao tentar usar isto de verdade: o
@@ -210,8 +210,9 @@ def rascunho(nome):
     """
     alvo = caminho_do_alvo(nome)
     if not alvo or not os.path.isfile(alvo):
-        print("  %s: nao e peca nem teste da maquina (veja o inventario)"
-              % nome)
+        if not silencioso:
+            print("  %s: nao e peca nem teste da maquina (veja o inventario)"
+                  % nome)
         return False
     t = io.open(alvo, encoding="utf-8", errors="replace").read()
     limpo, _trocas = destilar_texto(t)
@@ -231,10 +232,11 @@ def rascunho(nome):
     destino = os.path.join(RASCUNHO, os.path.basename(alvo))
     io.open(destino, "w", encoding="utf-8",
             newline=chr(10)).write(chr(10).join(marcadas))
-    print("  %-24s %d linha(s) marcadas -> publicado/_rascunho/%s"
-          % (nome[:24], n_marcas, os.path.basename(alvo)))
-    print("       regua: maquina/EXEMPLO-reescrita-do-cabecalho.py")
-    print("       depois: destilar.py --conferir")
+    if not silencioso:
+        print("  %-24s %d linha(s) marcadas -> publicado/_rascunho/%s"
+              % (nome[:24], n_marcas, os.path.basename(alvo)))
+        print("       regua: maquina/EXEMPLO-reescrita-do-cabecalho.py")
+        print("       depois: destilar.py --conferir")
     return True
 
 
@@ -275,11 +277,23 @@ def reescrever(fonte=None):
     Aplicar o resto calado publicaria uma reescrita PARCIAL com cara de
     completa — e a parcial passa no `--conferir` se o pedaco que sobrou nao
     tiver marca de privacidade, que e o pior dos mundos.
+
+    🔴 E O RASCUNHO E REGERADO AQUI, sempre. Sem isto o passo REGREDIA a peca
+    publicada: bastava um `_rascunho/` velho para a versao de ontem sobrepor a
+    de hoje, em silencio, com cara de operacao rotineira. Aconteceu tres vezes
+    num unico dia, e nas tres o `--conferir` pegou depois — o que significa
+    que a rede existia e o buraco tambem.
+
+    🔑 Regenerar e seguro justamente porque a reescrita mora no DADO. Era o
+    contrario antes: quando ela vivia dentro do arquivo publicado, regenerar
+    apagava o trabalho. O conserto de la e o que torna este possivel aqui.
     """
-    if not os.path.isdir(RASCUNHO):
-        erro("  _rascunho/ nao existe. Rode `--rascunho <peca>` primeiro.")
-        return 1
     mapa = carregar_reescritas(fonte)
+    for nome in sorted(mapa):
+        rascunho(os.path.splitext(nome)[0], silencioso=True)
+    if not os.path.isdir(RASCUNHO):
+        erro("  _rascunho/ nao existe e nao deu para gerar.")
+        return 1
     print("REESCRITA DE %d ARQUIVO(S), a partir do dado" % len(mapa))
     print()
     ruins = 0

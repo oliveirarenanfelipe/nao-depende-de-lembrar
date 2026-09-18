@@ -13,6 +13,7 @@
     "zero isentos e reprova MAIS — nunca menos."
   ],
   "isentos": {
+    "maquina/privacidade.json.exemplo": "e o catalogo do que se procura, entao contem por definicao o vocabulario que procura; o teste `2j` do destilar cobre o risco que esta isencao abre",
     "LICENSE": "a MIT exige o titular; tirar o nome nao e destilar, e invalidar a licenca",
     "CODEOWNERS": "o dono do codigo e um handle do GitHub, e e o conteudo do arquivo",
     ".github/CODEOWNERS": "idem — o caminho real dentro do repositorio publicado"

@@ -187,21 +187,37 @@ def medir_suites(base):
     """
     testes = sorted(glob.glob(os.path.join(base, "maquina", "testar_*.py")))
     testes += sorted(glob.glob(os.path.join(base, "portas", "testar_*.py")))
-    suites = checagens = mutacoes = vivas = 0
+    suites = checagens = mutacoes = vivas = falharam = 0
     for t in testes:
         r = subprocess.run([sys.executable, "-B", t], cwd=base,
                            capture_output=True, timeout=900)
         texto = r.stdout.decode("utf-8", "replace")
         suites += 1
+        falharam += 1 if r.returncode else 0
         achados = [int(m) for m in _PASS.findall(texto)]
         checagens += max(achados) if achados else len(_OK.findall(texto))
         mutacoes += texto.count("[DETECTADA]") + texto.count("[SOBREVIVEU]")
         vivas += texto.count("[SOBREVIVEU]")
-    return suites, checagens, mutacoes, vivas
+    return suites, checagens, mutacoes, vivas, falharam
+
+
+def medida_vale(numeros):
+    """A medicao pode virar painel? Falso quando alguma suite reprovou.
+
+    🔴 SEM ISTO O PAINEL MENTE DE OUTRO JEITO. Medindo uma pasta em que os
+    dados ainda nao foram preparados, as suites falham e os numeros caem — e
+    o painel escreve esse numero menor como se fosse o estado do projeto.
+    Aconteceu aqui: `129 checagens, 7 sobreviventes` foi gravado por engano
+    sobre `314 checagens, 0`.
+
+    🔑 Painel so vale quando sai de uma rodada inteira verde. Numero de
+    rodada quebrada nao e um numero pior: e outro assunto.
+    """
+    return len(numeros) > 4 and numeros[4] == 0
 
 
 def linha_de_fatos(numeros):
-    s, c, m, v = numeros
+    s, c, m, v = numeros[:4]
     return ("Medido: %d suítes, %d checagens, %d mutações, %d sobrevivente%s."
             % (s, c, m, v, "" if v == 1 else "s"))
 
@@ -268,8 +284,17 @@ def main():
         return 0
 
     if modo == "--fatos":
-        nova = linha_de_fatos(medir_suites(base))
+        numeros = medir_suites(base)
+        nova = linha_de_fatos(numeros)
         print("  %s" % nova)
+        if not medida_vale(numeros):
+            print()
+            print("  NAO ESCRITO: %d suite(s) REPROVARAM nesta pasta."
+                  % numeros[4])
+            print("  Painel so vale saindo de uma rodada inteira verde —")
+            print("  numero de rodada quebrada nao e um numero pior, e outro")
+            print("  assunto. Prepare o dado (os `.exemplo`) e rode de novo.")
+            return 1
         if "--escrever" in argv:
             # ⚠️ Escreve na FONTE (`publicado/`), nunca no repositorio montado.
             # O montado e descartavel: gravar nele daria um painel certo que
@@ -313,10 +338,17 @@ def main():
     print()
     print("== 3. o painel de fatos ainda e verdade ==")
     escrito = painel_atual(base, arr)
-    medido = linha_de_fatos(medir_suites(base))
+    numeros = medir_suites(base)
+    medido = linha_de_fatos(numeros)
     igual = escrito == medido
     print("  escrito: %s" % (escrito or "(nenhuma linha de fatos no README)"))
     print("  medido : %s" % medido)
+    if not medida_vale(numeros):
+        print()
+        print("  %d suite(s) REPROVARAM: o painel nao pode ser comparado com"
+              % numeros[4])
+        print("  uma rodada quebrada, e isto conta como reprovacao.")
+        igual = False
     if not igual:
         print()
         print("  O painel diverge do que as suites respondem agora.")

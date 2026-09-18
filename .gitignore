@@ -4,12 +4,13 @@
 # publicaria a lista de nomes de pessoas, empresas e projetos privados, que e
 # exatamente o conteudo que o `medir_privacidade` existe para achar. O arquivo
 # que ensina a detectar o privado seria o vazamento.
-maquina/privacidade.json
-maquina/mapa.json
-maquina/reescritas.json
-maquina/publicar_isentos.json
-portas/casa.json
-portas/seeds_inseguros.json
+# ⚠️ POR PADRAO, NAO POR LISTA. A lista era escrita a mao e ficou para tras
+# duas vezes no mesmo dia: nasceram `publicar_isentos.json` e `arranjo.json`,
+# e nenhum dos dois estava aqui. Todo dado da casa e um `.json` ao lado do seu
+# `.json.exemplo`, e o `.exemplo` nao casa estes padroes — entao a regra cobre
+# o que existe hoje e o que nascer amanha.
+maquina/*.json
+portas/*.json
 
 # O QUE NASCE DE RODAR OS TESTES.
 #

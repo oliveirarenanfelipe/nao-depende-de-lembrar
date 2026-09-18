@@ -11,7 +11,7 @@ Por isso as checagens aqui são quase todas sobre o ACUSAR — peça sumida do
 disco, teste que reprova, peça sem teste — e a mutação desarma justamente a
 execução do teste, que é a única coisa que o mapa sabe e um README não.
 
-CHAMADOR: `~/.claude/hooks/mente_health.py`, bloco `[6u]`.
+CHAMADOR: o verificador diário de saúde da casa.
 """
 import io
 import os

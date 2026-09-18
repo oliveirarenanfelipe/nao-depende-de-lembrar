@@ -166,6 +166,25 @@ jobs:
             [ -e "$f" ] && cp "$f" "${f%.exemplo}"
           done
 
+      - name: o dado aprende a URL deste repositorio
+        run: |
+          # Os arquivos de governanca citam a URL do proprio
+          # repositorio, e o detector le isso como contato — com razao.
+          # Ela nao pode morar no `.exemplo`, onde seria o dado de OUTRA
+          # casa publicado. O repositorio sabe o proprio nome; entao ele
+          # se declara aqui, e quem clona ganha o mesmo tratamento.
+          python - <<'FIM'
+          import io, json
+          p = "maquina/privacidade.json"
+          d = json.load(io.open(p, encoding="utf-8"))
+          for u in ("github.com/${{ github.repository }}",
+                    "${{ github.repository_owner }}"):
+              if u not in d["publico_declarado"]:
+                  d["publico_declarado"].append(u)
+          io.open(p, "w", encoding="utf-8", newline="\n").write(
+              json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+          FIM
+
       - name: medir as tres superficies
         run: python -B maquina/antes_de_publicar.py .
 
