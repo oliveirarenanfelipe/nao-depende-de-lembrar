@@ -112,7 +112,13 @@ jobs:
         run: |
           set -e
           for t in maquina/testar_*.py portas/testar_*.py; do
-            python -m coverage run -a --source=maquina,portas "$t" > /dev/null
+            # ⚠️ A casa de prova fica de FORA da medicao. O teste da fronteira
+            # monta um universo proprio, executa o gate de la e apaga no fim —
+            # e o relatorio depois procura o fonte de um arquivo que ja nao
+            # existe, com `No source for code`. Nao e cobertura faltando: e
+            # medicao de um arquivo que era copia descartavel.
+            python -m coverage run -a --source=maquina,portas \
+              --omit="*/_casa_de_prova_*/*" "$t" > /dev/null
           done
           python -m coverage report --skip-empty
 
